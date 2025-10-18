@@ -39,6 +39,17 @@
 </head>
 <body>
   <header>
+    <!-- Плашка запроса разрешений -->
+<section class="panel" id="permBanner" style="display:none; margin-top:8px">
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:space-between">
+    <div>
+      <div class="badge">Требуется действие</div>
+      <div style="color:#5b657a">Нажмите, чтобы разрешить доступ к микрофону и камере.</div>
+    </div>
+    <button class="btn btn-main" id="askBtn">Разрешить микрофон и камеру</button>
+  </div>
+</section>
+
     <a href="/"><span class="logo">М</span> Muzroom Pro</a>
   </header>
 
@@ -253,6 +264,82 @@ function bindStreamHandlers(call){
     console.error(e);
     $('remoteState').textContent = 'Ошибка соединения. Попробуйте обновить страницу.';
   });
+}
+  const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+async function checkPermissions(){
+  if (!navigator.permissions) { $('permBanner').style.display = 'block'; return 'prompt'; }
+  try {
+    const mic = await navigator.permissions.query({name:'microphone'});
+    const cam = await navigator.permissions.query({name:'camera'});
+    if (mic.state === 'granted' && cam.state === 'granted') return 'granted';
+    $('permBanner').style.display = 'block';
+    return (mic.state === 'denied' || cam.state === 'denied') ? 'denied' : 'prompt';
+  } catch { $('permBanner').style.display = 'block'; return 'prompt'; }
+}
+
+async function requestAccessFromUserGesture(){
+  try {
+    await getMedia();                          // твоя существующая функция
+    $('permBanner').style.display = 'none';
+    $('hint').textContent = 'Доступ разрешён. Можно начинать урок.';
+    setMic(true); setCam(true);                // твои функции
+    if (!peer) await initPeerFlow();
+  } catch (e) {
+    console.error(e);
+    $('hint').textContent = 'Доступ не получен. Проверьте настройки браузера.';
+    if (isIOS) alert('Safari → «aA» → Настройки для сайта → Микрофон/Камера → Разрешить, затем обновите страницу.');
+  }
+}
+
+async function initPeerFlow(){
+  peer = new Peer();
+  if (isHost) {
+    peer.on('open', id => {
+      const code = GEN();
+      peer.destroy(); peer = new Peer(code);
+      peer.on('open', () => showShare(code));
+      bindHandlersAsHost();
+    });
+  } else if (joinId) {
+    peer.on('open', () => connectAsStudent(joinId));
+  } else {
+    location.href = '/';
+  }
+}
+
+async function init(){
+  $('roleBadge').textContent = isHost ? 'Вы — преподаватель' : 'Вы — ученик';
+  $('hint').textContent = 'Разрешите доступ к микрофону/камере.';
+
+  const status = await checkPermissions();
+  const ask = $('askBtn'); if (ask) ask.onclick = requestAccessFromUserGesture;
+
+  if (status === 'granted') {
+    try {
+      await getMedia();
+      $('permBanner').style.display = 'none';
+      setMic(true); setCam(true);
+      await initPeerFlow();
+    } catch { $('permBanner').style.display = 'block'; }
+  } else {
+    $('permBanner').style.display = 'block';
+  }
+
+  $('micBtn').onclick = ()=> setMic(!(localStream?.getAudioTracks()[0]?.enabled));
+  $('camBtn').onclick = ()=> setCam(!(localStream?.getVideoTracks()[0]?.enabled));
+  $('musicMode').onchange = async (e)=>{
+    musicEnabled = e.target.checked;
+    const newStream = await getMedia();
+    if(currentCall){
+      const senders = currentCall.peerConnection.getSenders();
+      const nA = newStream.getAudioTracks()[0], nV = newStream.getVideoTracks()[0];
+      const sA = senders.find(s=>s.track?.kind==='audio'), sV = senders.find(s=>s.track?.kind==='video');
+      if(sA && nA) sA.replaceTrack(nA);
+      if(sV && nV) sV.replaceTrack(nV);
+    }
+  };
+  $('sidetone').onchange = (e)=> toggleSidetone(e.target.checked);
 }
 
 init();
