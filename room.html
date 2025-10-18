@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Muzroom Pro — Комната</title>
+  <link rel="icon" href="/favicon.ico">
+  <!-- PeerJS (сигналинг через облако PeerJS) -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    :root{
+      --bg:#f7f8fb; --paper:#fff; --ink:#1f2430; --muted:#5b657a;
+      --accent:#2e3543; --accent-weak:#e7eaf2; --ring:0 0 0 4px rgba(46,53,67,.15);
+      --shadow:0 12px 28px rgba(16,20,32,.08); --radius:16px;
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Inter,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+    header,footer{max-width:1024px;margin:0 auto;padding:16px 14px}
+    header a{color:var(--ink);text-decoration:none;font-weight:700;display:flex;align-items:center;gap:10px}
+    .logo{width:32px;height:32px;border-radius:999px;background:conic-gradient(from 210deg,#2e3543,#4a5469,#2e3543);display:grid;place-items:center;color:#fff}
+    main{max-width:1024px;margin:0 auto;padding:12px 14px 26px;display:grid;gap:12px}
+    .panel{background:var(--paper);border:1px solid var(--accent-weak);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px}
+    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#f0f3fa;border:1px dashed #cdd5e6;border-radius:12px;padding:10px 12px}
+    .btn{appearance:none;border:none;border-radius:12px;padding:12px 16px;font-weight:600;cursor:pointer;transition:.25s;outline:none}
+    .btn:focus-visible{box-shadow:var(--ring)}
+    .btn-main{background:var(--accent);color:#fff}
+    .btn-main:hover{box-shadow:0 10px 18px rgba(46,53,67,.18);background:#262c38}
+    .btn-ghost{background:#fff;border:1px solid var(--accent-weak);color:var(--ink)}
+    .btn-ghost:hover{border-color:#cfd6e6;box-shadow:0 8px 16px rgba(46,53,67,.08) inset,0 6px 14px rgba(46,53,67,.10)}
+    .grid{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}}
+    video,.audio{width:100%;background:#0b0f1a;border-radius:12px}
+    .badge{display:inline-block;padding:3px 8px;border-radius:8px;background:#ecf0f8;color:#2e3543;font-size:12px;font-weight:600}
+    label{display:flex;align-items:center;gap:8px}
+    input[type="checkbox"]{width:18px;height:18px}
+    .muted{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/"><span class="logo">М</span> Muzroom Pro</a>
+  </header>
+
+  <main>
+    <!-- Верхняя панель с кодом/ссылкой -->
+    <section class="panel row" id="sharePanel" style="justify-content:space-between">
+      <div>
+        <div class="badge" id="roleBadge">Подключение…</div>
+        <div class="muted" id="hint">Разрешите доступ к микрофону/камере.</div>
+      </div>
+      <div class="row">
+        <div class="code" id="shareCode" hidden></div>
+        <button class="btn btn-ghost" id="copyBtn" hidden>Скопировать ссылку</button>
+      </div>
+    </section>
+
+    <!-- Видеосетка -->
+    <section class="grid">
+      <div class="panel">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <div class="muted" id="remoteState" style="margin-top:6px">Ожидание ученика…</div>
+      </div>
+      <div class="panel">
+        <video id="localVideo" autoplay playsinline muted></video>
+        <div class="row" style="margin-top:10px">
+          <button class="btn btn-main" id="micBtn">🎙️ Микрофон: Вкл</button>
+          <button class="btn btn-ghost" id="camBtn">📷 Камера: Вкл</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label><input id="musicMode" type="checkbox" checked> Музыкальный режим (без шумоподавления)</label>
+        </div>
+        <div class="row">
+          <label><input id="sidetone" type="checkbox"> Слышать себя (в наушниках)</label>
+        </div>
+        <audio id="monitor" class="audio" controls hidden></audio>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="muted">
+        Совет: если связь слабая, выключите камеру — звук станет стабильнее. На iPhone аудио начнёт играть после любого клика.
+      </div>
+    </section>
+  </main>
+
+  <footer class="row" style="justify-content:space-between">
+    <div class="muted">Muzroom Pro — онлайн-платформа для музыкальных уроков</div>
+    <div class="muted">© 2025 Muzroom Pro · <a href="/privacy.html">Политика конфиденциальности</a></div>
+  </footer>
+
+<script>
+/* ---------- УТИЛИТЫ ---------- */
+const $ = (id)=>document.getElementById(id);
+const qp = new URLSearchParams(location.search);
+const isHost = qp.has('host');
+const joinId = qp.get('join') || null;
+const GEN = ()=> Math.random().toString(36).slice(2,8).toUpperCase();
+
+let localStream = null;
+let remoteStream = null;
+let peer = null;
+let currentCall = null;
+let musicEnabled = true;
+let monitorStarted = false;
+
+/* ---------- МЕДИА: музыкальные настройки ---------- */
+function getConstraints(){
+  return {
+    audio: {
+      echoCancellation: !musicEnabled ? true : false,
+      noiseSuppression: !musicEnabled ? true : false,
+      autoGainControl: !musicEnabled ? true : false,
+      channelCount: 1,
+      sampleRate: 48000
+    },
+    video: true
+  };
+}
+
+async function getMedia(){
+  if(localStream){
+    localStream.getTracks().forEach(t=>t.stop());
+  }
+  localStream = await navigator.mediaDevices.getUserMedia(getConstraints());
+  $('localVideo').srcObject = localStream;
+  return localStream;
+}
+
+/* ---------- САМОПРОСЛУШИВАНИЕ ---------- */
+function toggleSidetone(on){
+  const audio = $('monitor');
+  if(on){
+    if(!monitorStarted){
+      audio.hidden = false;
+      audio.srcObject = localStream;
+      audio.muted = false;  // важное: слышать себя
+      audio.play().catch(()=>{ /* Safari требует клик — пользователь нажмёт вручную */ });
+      monitorStarted = true;
+    }
+  } else {
+    audio.pause(); audio.srcObject = null; audio.hidden = true; monitorStarted = false;
+  }
+}
+
+/* ---------- ПЕРЕВКЛЮЧЕНИЕ МИК/КАМ ---------- */
+function setMic(on){
+  localStream?.getAudioTracks().forEach(t=>t.enabled = on);
+  $('micBtn').textContent = `🎙️ Микрофон: ${on?'Вкл':'Выкл'}`;
+}
+function setCam(on){
+  localStream?.getVideoTracks().forEach(t=>t.enabled = on);
+  $('camBtn').textContent = `📷 Камера: ${on?'Вкл':'Выкл'}`;
+}
+
+/* ---------- ИНИЦИАЛИЗАЦИЯ ---------- */
+async function init(){
+  $('roleBadge').textContent = isHost ? 'Вы — преподаватель' : 'Вы — ученик';
+  $('hint').textContent = 'Разрешите доступ к микрофону/камере.';
+
+  // Получаем медиа
+  try{
+    await getMedia();
+  }catch(e){
+    alert('Нужно разрешить доступ к микрофону/камере.');
+    console.error(e);
+    return;
+  }
+
+  // Создаём Peer (используем облачный PeerJS по умолчанию)
+  peer = new Peer(); // без параметров — подключается к публичному PeerJS Cloud
+
+  if(isHost){
+    // Учитель: генерируем код комнаты = собственный peerId (после .open обновим ссылку)
+    peer.on('open', id => {
+      // для стабильности используем свой код, не auto-id
+      const code = GEN();
+      // пересоздаём peer с заданным id
+      peer.destroy();
+      peer = new Peer(code);
+      peer.on('open', () => showShare(code));
+      bindHandlersAsHost();
+    });
+  }else if(joinId){
+    peer.on('open', () => connectAsStudent(joinId));
+  }else{
+    // если зашли без параметров — перенаправим на главную
+    location.href = '/';
+  }
+
+  // UI
+  $('micBtn').onclick = ()=> setMic(!(localStream.getAudioTracks()[0]?.enabled));
+  $('camBtn').onclick = ()=> setCam(!(localStream.getVideoTracks()[0]?.enabled));
+  $('musicMode').onchange = async (e)=>{
+    musicEnabled = e.target.checked;
+    // Получаем новый трек и подменяем отправку
+    const newStream = await getMedia();
+    if(currentCall){
+      const senders = currentCall.peerConnection.getSenders();
+      const nA = newStream.getAudioTracks()[0];
+      const nV = newStream.getVideoTracks()[0];
+      const sA = senders.find(s=>s.track && s.track.kind==='audio');
+      const sV = senders.find(s=>s.track && s.track.kind==='video');
+      if(sA && nA) sA.replaceTrack(nA);
+      if(sV && nV) sV.replaceTrack(nV);
+    }
+  };
+  $('sidetone').onchange = (e)=> toggleSidetone(e.target.checked);
+}
+
+function showShare(code){
+  const link = `${location.origin}/room.html?join=${encodeURIComponent(code)}`;
+  $('shareCode').hidden = false;
+  $('copyBtn').hidden = false;
+  $('shareCode').textContent = `Код: ${code}  ·  Ссылка: ${link}`;
+  $('hint').textContent = 'Отправьте ученику код или ссылку.';
+  $('copyBtn').onclick = async ()=>{
+    try{
+      await navigator.clipboard.writeText(link);
+      $('copyBtn').textContent = 'Ссылка скопирована!';
+      setTimeout(()=> $('copyBtn').textContent = 'Скопировать ссылку', 1800);
+    }catch{ alert(link); }
+  };
+}
+
+function bindHandlersAsHost(){
+  peer.on('call', call => {
+    currentCall = call;
+    call.answer(localStream);
+    bindStreamHandlers(call);
+  });
+}
+
+function connectAsStudent(code){
+  $('shareCode').hidden = false;
+  $('shareCode').textContent = `Подключение к коду: ${code}`;
+  $('hint').textContent = 'Идёт звонок преподавателю…';
+  const call = peer.call(code, localStream);
+  currentCall = call;
+  bindStreamHandlers(call);
+}
+
+function bindStreamHandlers(call){
+  call.on('stream', rs=>{
+    remoteStream = rs;
+    $('remoteVideo').srcObject = rs;
+    $('remoteState').textContent = 'Соединение установлено';
+  });
+  call.on('close', ()=>{
+    $('remoteState').textContent = 'Связь закончена';
+  });
+  call.on('error', (e)=>{
+    console.error(e);
+    $('remoteState').textContent = 'Ошибка соединения. Попробуйте обновить страницу.';
+  });
+}
+
+init();
+</script>
+</body>
+</html>
