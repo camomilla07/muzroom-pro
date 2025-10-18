@@ -1,7 +1,17 @@
-FROM eclipse-temurin:17-jdk
+# Используем готовый образ с Java 17
+FROM openjdk:17-jdk-slim
+
+# Устанавливаем рабочую директорию
 WORKDIR /app
+
+# Копируем pom.xml и скачиваем зависимости
+COPY pom.xml .
+RUN apt-get update && apt-get install -y maven && mvn dependency:go-offline
+
+# Копируем всё остальное и собираем проект
 COPY . .
-RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
-RUN mvn -q -DskipTests package
-EXPOSE 8080
-CMD ["java","-jar","target/music-lesson-mvp-java-0.0.1-SNAPSHOT.jar"]
+RUN mvn package -DskipTests
+
+# Запускаем приложение
+CMD ["java", "-jar", "target/music-lesson-mvp-java-0.0.1-SNAPSHOT.jar"]
+
