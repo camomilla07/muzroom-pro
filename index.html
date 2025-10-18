@@ -148,19 +148,21 @@
   </footer>
 
   <script>
-    function toggleJoin(){
-      const el = document.getElementById('join');
-      el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
-    }
-    function startAsTeacher(){
-      // пока просто якорь — позже подключим реальную комнату
-      alert('Создание комнаты появится на следующем шаге.\nСейчас это демонстрационная главная страница.');
-    }
-    function joinByCode(){
-      const v = document.getElementById('code').value.trim();
-      if(!v){ alert('Введите код или ссылку.'); return; }
-      alert('Подключение ученика тоже добавим на следующем шаге. Пока это заглушка.');
-    }
-  </script>
-</body>
+  function toggleJoin(){
+    const el = document.getElementById('join');
+    el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
+  }
+  function startAsTeacher(){
+    // сразу открываем комнату в режиме преподавателя
+    window.location.href = '/room.html?host=1';
+  }
+  function joinByCode(){
+    const v = document.getElementById('code').value.trim();
+    if(!v){ alert('Введите код или вставьте ссылку.'); return; }
+    // если вставили полную ссылку — идём по ней; если только код — формируем URL
+    if(/^https?:\/\//i.test(v)) window.location.href = v;
+    else window.location.href = '/room.html?join=' + encodeURIComponent(v);
+  }
+</script>
+
 </html>
