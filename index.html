@@ -1,1 +1,166 @@
-<h1>Muzroom Pro</h1>
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Muzroom Pro — Уроки, которые звучат</title>
+  <link rel="icon" href="/favicon.ico">
+  <meta name="description" content="Muzroom Pro — онлайн-платформа для индивидуальных музыкальных уроков. Чистый звук без шумоподавления." />
+
+  <style>
+    :root{
+      --bg:#f7f8fb;            /* светлый фон */
+      --paper:#ffffff;         /* карточки/панели */
+      --ink:#1f2430;           /* графитовый текст */
+      --muted:#5b657a;
+      --accent:#2e3543;        /* графитовый акцент для кнопок */
+      --accent-weak:#e7eaf2;   /* тонкая рамка */
+      --ring:0 0 0 4px rgba(46,53,67,.15); /* focus */
+      --radius:16px;
+      --shadow:0 12px 28px rgba(16,20,32,.08);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+      color:var(--ink); background:
+        radial-gradient(900px 500px at 10% -10%, rgba(46,53,67,.06), transparent 60%),
+        radial-gradient(800px 500px at 110% 0%, rgba(46,53,67,.05), transparent 55%),
+        var(--bg);
+    }
+
+    header{
+      max-width:1024px; margin:0 auto; padding:22px 18px;
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .brand{display:flex; align-items:center; gap:12px; text-decoration:none; color:var(--ink)}
+    .logo{
+      width:36px; height:36px; border-radius:999px;
+      background: conic-gradient(from 210deg, #2e3543, #4a5469, #2e3543);
+      display:grid; place-items:center; color:#fff; font-weight:700;
+      box-shadow: var(--shadow);
+    }
+    .brand b{font-weight:700; letter-spacing:.2px}
+
+    .hero{
+      max-width:1024px; margin:0 auto; padding:28px 18px 18px;
+      display:grid; gap:20px;
+    }
+    h1{ font-size: clamp(28px, 5.5vw, 48px); line-height:1.08; margin:4px 0 8px; }
+    .sub{ color:var(--muted); font-size: clamp(15px, 2.3vw, 18px); margin:0 0 18px; }
+
+    .panel{
+      background:var(--paper); border:1px solid var(--accent-weak); border-radius:var(--radius);
+      padding:18px; box-shadow: var(--shadow);
+    }
+
+    .cta{ display:flex; gap:12px; flex-wrap:wrap; }
+    .btn{
+      appearance:none; border:none; border-radius:12px; padding:14px 18px; font-weight:600; cursor:pointer;
+      transition: box-shadow .25s ease, transform .02s ease, background-color .25s ease, color .25s ease, border-color .25s ease;
+      outline:none;
+    }
+    .btn:focus-visible{ box-shadow: var(--ring); }
+
+    .btn-primary{
+      background:var(--accent); color:#fff;
+    }
+    .btn-primary:hover{
+      box-shadow: 0 10px 20px rgba(46,53,67,.18);
+      background:#262c38;
+    }
+
+    .btn-secondary{
+      background:#fff; border:1px solid var(--accent-weak); color:var(--ink);
+    }
+    .btn-secondary:hover{
+      border-color:#cfd6e6;
+      box-shadow: 0 10px 20px rgba(46,53,67,.08) inset, 0 6px 14px rgba(46,53,67,.10);
+    }
+
+    .join{ display:none; gap:10px; margin-top:12px; flex-wrap:wrap; }
+    input{
+      background:#fff; border:1px solid var(--accent-weak); border-radius:12px; padding:12px 14px; min-width:220px;
+      font-size:15px; color:var(--ink); outline:none; transition: box-shadow .2s ease, border-color .2s ease;
+    }
+    input:focus{ border-color:#cfd6e6; box-shadow: var(--ring); }
+
+    .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:8px; }
+    @media (max-width:900px){ .cards{ grid-template-columns:1fr; } }
+
+    .card{ background:var(--paper); border:1px solid var(--accent-weak); border-radius:14px; padding:16px; }
+    .card h3{ margin:0 0 6px; font-size:18px }
+    .card p{ margin:0; color:var(--muted) }
+
+    footer{
+      max-width:1024px; margin:28px auto 40px; padding:0 18px; color:var(--muted);
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between;
+    }
+    footer a{ color:var(--muted); text-decoration:none; border-bottom:1px dotted #bfc7d7 }
+    footer a:hover{ color:var(--ink) }
+  </style>
+</head>
+<body>
+
+  <header class="panel" style="border:none; box-shadow:none; background:transparent;">
+    <a href="/" class="brand" aria-label="Muzroom Pro">
+      <span class="logo" aria-hidden="true">М</span>
+      <b>Muzroom Pro</b>
+    </a>
+  </header>
+
+  <main class="hero">
+    <section class="panel" aria-labelledby="title">
+      <h1 id="title">Уроки, которые звучат</h1>
+      <p class="sub">Чистый звук без шумоподавления. Подходит для вокала и инструментов.</p>
+
+      <div class="cta" role="group" aria-label="Основные действия">
+        <button class="btn btn-primary" onclick="startAsTeacher()">Начать как преподаватель</button>
+        <button class="btn btn-secondary" onclick="toggleJoin()">Войти по ссылке</button>
+      </div>
+
+      <div id="join" class="join">
+        <input id="code" placeholder="Код или ссылка" aria-label="Код комнаты">
+        <button class="btn btn-primary" onclick="joinByCode()">Войти</button>
+      </div>
+    </section>
+
+    <section class="cards" aria-label="Преимущества">
+      <article class="card">
+        <h3>Музыкальный режим</h3>
+        <p>Без шумоподавления — фортепиано, гитара и голос звучат естественно.</p>
+      </article>
+      <article class="card">
+        <h3>Просто по ссылке</h3>
+        <p>Ученику не нужна регистрация. Работает в мобильном интернете.</p>
+      </article>
+      <article class="card">
+        <h3>Минималистичный интерфейс</h3>
+        <p>Ничего лишнего — только кнопки, которые нужны для урока.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    <div>Muzroom Pro — онлайн-платформа для музыкальных уроков</div>
+    <div>© 2025 Muzroom Pro · <a href="/privacy.html">Политика конфиденциальности</a></div>
+  </footer>
+
+  <script>
+    function toggleJoin(){
+      const el = document.getElementById('join');
+      el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
+    }
+    function startAsTeacher(){
+      // пока просто якорь — позже подключим реальную комнату
+      alert('Создание комнаты появится на следующем шаге.\nСейчас это демонстрационная главная страница.');
+    }
+    function joinByCode(){
+      const v = document.getElementById('code').value.trim();
+      if(!v){ alert('Введите код или ссылку.'); return; }
+      alert('Подключение ученика тоже добавим на следующем шаге. Пока это заглушка.');
+    }
+  </script>
+</body>
+</html>
