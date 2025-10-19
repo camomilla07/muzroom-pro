@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Muzroom Pro — Комната</title>
   <link rel="icon" href="/favicon.ico">
-  <!-- PeerJS (сигналинг через облако PeerJS) -->
+  <!-- PeerJS (облачный сигналинг) -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     :root{
@@ -39,16 +39,16 @@
 </head>
 <body>
   <header>
-    <!-- Плашка запроса разрешений -->
-<section class="panel" id="permBanner" style="display:none; margin-top:8px">
-  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:space-between">
-    <div>
-      <div class="badge">Требуется действие</div>
-      <div style="color:#5b657a">Нажмите, чтобы разрешить доступ к микрофону и камере.</div>
-    </div>
-    <button class="btn btn-main" id="askBtn">Разрешить микрофон и камеру</button>
-  </div>
-</section>
+    <!-- Баннер запроса разрешений -->
+    <section class="panel" id="permBanner" style="display:none; margin-top:8px">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:space-between">
+        <div>
+          <div class="badge">Требуется действие</div>
+          <div class="muted">Нажмите, чтобы разрешить доступ к микрофону и камере.</div>
+        </div>
+        <button class="btn btn-main" id="askBtn">Разрешить микрофон и камеру</button>
+      </div>
+    </section>
 
     <a href="/"><span class="logo">М</span> Muzroom Pro</a>
   </header>
@@ -100,271 +100,200 @@
     <div class="muted">© 2025 Muzroom Pro · <a href="/privacy.html">Политика конфиденциальности</a></div>
   </footer>
 
-<script>
-/* ---------- УТИЛИТЫ ---------- */
-const $ = (id)=>document.getElementById(id);
-const qp = new URLSearchParams(location.search);
-const isHost = qp.has('host');
-const joinId = qp.get('join') || null;
-const GEN = ()=> Math.random().toString(36).slice(2,8).toUpperCase();
+  <script>
+  /* ---------- Утилиты и состояние ---------- */
+  const $ = (id)=>document.getElementById(id);
+  const qp = new URLSearchParams(location.search);
+  const isHost = qp.has('host');
+  const joinId = qp.get('join') || null;
 
-let localStream = null;
-let remoteStream = null;
-let peer = null;
-let currentCall = null;
-let musicEnabled = true;
-let monitorStarted = false;
+  let localStream = null;
+  let remoteStream = null;
+  let peer = null;
+  let currentCall = null;
+  let musicEnabled = true;
+  let monitorStarted = false;
 
-/* ---------- МЕДИА: музыкальные настройки ---------- */
-function getConstraints(){
-  return {
-    audio: {
-      echoCancellation: !musicEnabled ? true : false,
-      noiseSuppression: !musicEnabled ? true : false,
-      autoGainControl: !musicEnabled ? true : false,
-      channelCount: 1,
-      sampleRate: 48000
-    },
-    video: true
-  };
-}
-
-async function getMedia(){
-  if(localStream){
-    localStream.getTracks().forEach(t=>t.stop());
+  /* ---------- Настройки медиа (музыкальный режим) ---------- */
+  function getConstraints(){
+    return {
+      audio: {
+        echoCancellation:   !musicEnabled ? true : false,
+        noiseSuppression:   !musicEnabled ? true : false,
+        autoGainControl:    !musicEnabled ? true : false,
+        channelCount: 1,
+        sampleRate: 48000
+      },
+      video: true
+    };
   }
-  localStream = await navigator.mediaDevices.getUserMedia(getConstraints());
-  $('localVideo').srcObject = localStream;
-  return localStream;
-}
 
-/* ---------- САМОПРОСЛУШИВАНИЕ ---------- */
-function toggleSidetone(on){
-  const audio = $('monitor');
-  if(on){
-    if(!monitorStarted){
-      audio.hidden = false;
-      audio.srcObject = localStream;
-      audio.muted = false;  // важное: слышать себя
-      audio.play().catch(()=>{ /* Safari требует клик — пользователь нажмёт вручную */ });
-      monitorStarted = true;
+  async function getMedia(){
+    if(localStream){
+      localStream.getTracks().forEach(t=>t.stop());
     }
-  } else {
-    audio.pause(); audio.srcObject = null; audio.hidden = true; monitorStarted = false;
-  }
-}
-
-/* ---------- ПЕРЕВКЛЮЧЕНИЕ МИК/КАМ ---------- */
-function setMic(on){
-  localStream?.getAudioTracks().forEach(t=>t.enabled = on);
-  $('micBtn').textContent = `🎙️ Микрофон: ${on?'Вкл':'Выкл'}`;
-}
-function setCam(on){
-  localStream?.getVideoTracks().forEach(t=>t.enabled = on);
-  $('camBtn').textContent = `📷 Камера: ${on?'Вкл':'Выкл'}`;
-}
-
-/* ---------- ИНИЦИАЛИЗАЦИЯ ---------- */
-
-  $('roleBadge').textContent = isHost ? 'Вы — преподаватель' : 'Вы — ученик';
-  $('hint').textContent = 'Разрешите доступ к микрофону/камере.';
-  if (isHost){
-  $('hint').textContent = 'Генерируем код для ученика…';
-}
-
-
-  // Получаем медиа
-  try{
-    await getMedia();
-  }catch(e){
-    alert('Нужно разрешить доступ к микрофону/камере.');
-    console.error(e);
-    return;
+    localStream = await navigator.mediaDevices.getUserMedia(getConstraints());
+    $('localVideo').srcObject = localStream;
+    return localStream;
   }
 
-  // Создаём Peer (используем облачный PeerJS по умолчанию)
-  peer = new Peer(); // без параметров — подключается к публичному PeerJS Cloud
+  /* ---------- Самопрослушивание ---------- */
+  function toggleSidetone(on){
+    const audio = $('monitor');
+    if(on){
+      if(!monitorStarted){
+        audio.hidden = false;
+        audio.srcObject = localStream;
+        audio.muted = false;
+        audio.play().catch(()=>{ /* Safari требует клик; пользователь нажмёт вручную */ });
+        monitorStarted = true;
+      }
+    } else {
+      audio.pause(); audio.srcObject = null; audio.hidden = true; monitorStarted = false;
+    }
+  }
 
-  if(isHost){
-    // Учитель: генерируем код комнаты = собственный peerId (после .open обновим ссылку)
-    peer.on('open', id => {
-      // для стабильности используем свой код, не auto-id
-      const code = GEN();
-      // пересоздаём peer с заданным id
-      peer.destroy();
-      peer = new Peer(code);
-      peer.on('open', () => showShare(code));
-      bindHandlersAsHost();
+  /* ---------- Переключатели ---------- */
+  function setMic(on){
+    localStream?.getAudioTracks().forEach(t=>t.enabled = on);
+    $('micBtn').textContent = `🎙️ Микрофон: ${on?'Вкл':'Выкл'}`;
+  }
+  function setCam(on){
+    localStream?.getVideoTracks().forEach(t=>t.enabled = on);
+    $('camBtn').textContent = `📷 Камера: ${on?'Вкл':'Выкл'}`;
+  }
+
+  /* ---------- Показ ссылки ученику ---------- */
+  function showShare(peerId){
+    const link = `${location.origin}/room.html?join=${encodeURIComponent(peerId)}`;
+    $('hint').textContent = 'Отправьте ученику ссылку:';
+    $('shareCode').textContent = link;
+    $('shareCode').hidden = false;
+
+    const btn = $('copyBtn');
+    btn.hidden = false;
+    btn.onclick = async ()=>{
+      try{
+        await navigator.clipboard.writeText(link);
+        btn.textContent = 'Скопировано ✓';
+        setTimeout(()=>btn.textContent='Скопировать ссылку', 1500);
+      }catch{
+        // iOS: выделим ссылку, чтобы пользователь скопировал вручную
+        const r = document.createRange(); r.selectNodeContents($('shareCode'));
+        const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      }
+    };
+  }
+
+  /* ---------- Хэндлеры звонка ---------- */
+  function bindHandlersAsHost(){
+    peer.on('call', call => {
+      currentCall = call;
+      call.answer(localStream);
+      bindStreamHandlers(call);
     });
-  }else if(joinId){
-    peer.on('open', () => connectAsStudent(joinId));
-  }else{
-    // если зашли без параметров — перенаправим на главную
-    location.href = '/';
   }
 
-  // UI
-  $('micBtn').onclick = ()=> setMic(!(localStream.getAudioTracks()[0]?.enabled));
-  $('camBtn').onclick = ()=> setCam(!(localStream.getVideoTracks()[0]?.enabled));
-  $('musicMode').onchange = async (e)=>{
-    musicEnabled = e.target.checked;
-    // Получаем новый трек и подменяем отправку
-    const newStream = await getMedia();
-    if(currentCall){
-      const senders = currentCall.peerConnection.getSenders();
-      const nA = newStream.getAudioTracks()[0];
-      const nV = newStream.getVideoTracks()[0];
-      const sA = senders.find(s=>s.track && s.track.kind==='audio');
-      const sV = senders.find(s=>s.track && s.track.kind==='video');
-      if(sA && nA) sA.replaceTrack(nA);
-      if(sV && nV) sV.replaceTrack(nV);
-    }
-  };
-  $('sidetone').onchange = (e)=> toggleSidetone(e.target.checked);
-}
-
-function showShare(code){
-  const link = `${location.origin}/room.html?join=${encodeURIComponent(code)}`;
-
-  // текст и видимость панели
-  $('hint').textContent = 'Отправьте ученику ссылку:';
-  const box = $('shareCode');
-  box.textContent = link;
-  box.hidden = false;
-
-  const btn = $('copyBtn');
-  btn.hidden = false;
-  btn.onclick = async ()=>{
-    try{
-      await navigator.clipboard.writeText(link);
-      btn.textContent = 'Скопировано ✓';
-      setTimeout(()=>btn.textContent='Скопировать ссылку', 1500);
-    }catch{
-      // iOS Safari может не дать в буфер без явного взаимодействия — просто выделим текст
-      const r = document.createRange(); r.selectNodeContents(box);
-      const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
-    }
-  };
-}
-
-
-function bindHandlersAsHost(){
-  peer.on('call', call => {
+  function connectAsStudent(code){
+    $('shareCode').hidden = false;
+    $('shareCode').textContent = `Подключение к коду: ${code}`;
+    $('hint').textContent = 'Идёт звонок преподавателю…';
+    const call = peer.call(code, localStream);
     currentCall = call;
-    call.answer(localStream);
     bindStreamHandlers(call);
-  });
-}
+  }
 
-function connectAsStudent(code){
-  $('shareCode').hidden = false;
-  $('shareCode').textContent = `Подключение к коду: ${code}`;
-  $('hint').textContent = 'Идёт звонок преподавателю…';
-  const call = peer.call(code, localStream);
-  currentCall = call;
-  bindStreamHandlers(call);
-}
+  function bindStreamHandlers(call){
+    call.on('stream', rs=>{
+      remoteStream = rs;
+      $('remoteVideo').srcObject = rs;
+      $('remoteState').textContent = 'Соединение установлено';
+    });
+    call.on('close', ()=>{ $('remoteState').textContent = 'Связь закончена'; });
+    call.on('error', (e)=>{ console.error(e); $('remoteState').textContent = 'Ошибка соединения. Обновите страницу.'; });
+  }
 
-function bindStreamHandlers(call){
-  call.on('stream', rs=>{
-    remoteStream = rs;
-    $('remoteVideo').srcObject = rs;
-    $('remoteState').textContent = 'Соединение установлено';
-  });
-  call.on('close', ()=>{
-    $('remoteState').textContent = 'Связь закончена';
-  });
-  call.on('error', (e)=>{
-    console.error(e);
-    $('remoteState').textContent = 'Ошибка соединения. Попробуйте обновить страницу.';
-  });
-}
+  /* ---------- Разрешения ---------- */
   const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-async function checkPermissions(){
-  if (!navigator.permissions) { $('permBanner').style.display = 'block'; return 'prompt'; }
-  try {
-    const mic = await navigator.permissions.query({name:'microphone'});
-    const cam = await navigator.permissions.query({name:'camera'});
-    if (mic.state === 'granted' && cam.state === 'granted') return 'granted';
-    $('permBanner').style.display = 'block';
-    return (mic.state === 'denied' || cam.state === 'denied') ? 'denied' : 'prompt';
-  } catch { $('permBanner').style.display = 'block'; return 'prompt'; }
-}
-
-async function requestAccessFromUserGesture(){
-  try {
-    await getMedia();                          // твоя существующая функция
-    $('permBanner').style.display = 'none';
-    $('hint').textContent = 'Доступ разрешён. Можно начинать урок.';
-    setMic(true); setCam(true);                // твои функции
-    if (!peer) await initPeerFlow();
-  } catch (e) {
-    console.error(e);
-    $('hint').textContent = 'Доступ не получен. Проверьте настройки браузера.';
-    if (isIOS) alert('Safari → «aA» → Настройки для сайта → Микрофон/Камера → Разрешить, затем обновите страницу.');
-  }
-}
-
-async function initPeerFlow(){
-  // даём облаку PeerJS выдать нам стабильный id
-  peer = new Peer();
-
-  if (isHost) {
-    peer.on('open', (id) => {
-      // просто показываем ссылку с реальным id
-      showShare(id);
-      bindHandlersAsHost();
-    });
-  } else if (joinId) {
-    peer.on('open', () => connectAsStudent(joinId));
-  } else {
-    location.href = '/';
+  async function checkPermissions(){
+    if (!navigator.permissions) { $('permBanner').style.display = 'block'; return 'prompt'; }
+    try {
+      const mic = await navigator.permissions.query({name:'microphone'});
+      const cam = await navigator.permissions.query({name:'camera'});
+      if (mic.state === 'granted' && cam.state === 'granted') return 'granted';
+      $('permBanner').style.display = 'block';
+      return (mic.state === 'denied' || cam.state === 'denied') ? 'denied' : 'prompt';
+    } catch {
+      $('permBanner').style.display = 'block';
+      return 'prompt';
+    }
   }
 
-  // На всякий случай: лог ошибок
-  peer.on('error', (e) => {
-    console.error('Peer error:', e);
-    $('hint').textContent = 'Не удалось подключиться к серверу. Обновите страницу или попробуйте позже.';
-  });
-}
-
-
-async function init(){
-  $('roleBadge').textContent = isHost ? 'Вы — преподаватель' : 'Вы — ученик';
-  $('hint').textContent = 'Разрешите доступ к микрофону/камере.';
-
-  const status = await checkPermissions();
-  const ask = $('askBtn'); if (ask) ask.onclick = requestAccessFromUserGesture;
-
-  if (status === 'granted') {
+  async function requestAccessFromUserGesture(){
     try {
       await getMedia();
       $('permBanner').style.display = 'none';
+      $('hint').textContent = 'Доступ разрешён. Можно начинать урок.';
       setMic(true); setCam(true);
-      await initPeerFlow();
-    } catch { $('permBanner').style.display = 'block'; }
-  } else {
-    $('permBanner').style.display = 'block';
+      if (!peer) await initPeerFlow();
+    } catch (e) {
+      console.error(e);
+      $('hint').textContent = 'Доступ не получен. Проверьте настройки браузера.';
+      if (isIOS) alert('Safari → «aA» → Настройки для сайта → Микрофон/Камера → Разрешить, затем обновите страницу.');
+    }
   }
 
-  $('micBtn').onclick = ()=> setMic(!(localStream?.getAudioTracks()[0]?.enabled));
-  $('camBtn').onclick = ()=> setCam(!(localStream?.getVideoTracks()[0]?.enabled));
-  $('musicMode').onchange = async (e)=>{
-    musicEnabled = e.target.checked;
-    const newStream = await getMedia();
-    if(currentCall){
-      const senders = currentCall.peerConnection.getSenders();
-      const nA = newStream.getAudioTracks()[0], nV = newStream.getVideoTracks()[0];
-      const sA = senders.find(s=>s.track?.kind==='audio'), sV = senders.find(s=>s.track?.kind==='video');
-      if(sA && nA) sA.replaceTrack(nA);
-      if(sV && nV) sV.replaceTrack(nV);
+  /* ---------- PeerJS: один раз, без пересоздания ---------- */
+  async function initPeerFlow(){
+    peer = new Peer(); // облачный ID
+    if (isHost){
+      peer.on('open', (id)=>{ showShare(id); bindHandlersAsHost(); });
+    } else if (joinId){
+      peer.on('open', ()=> connectAsStudent(joinId));
+    } else {
+      location.href = '/';
     }
-  };
-  $('sidetone').onchange = (e)=> toggleSidetone(e.target.checked);
-}
+    peer.on('error', (e)=>{ console.error('Peer error:', e); $('hint').textContent = 'Проблема с сервером. Обновите страницу.'; });
+  }
 
-init();
-</script>
+  /* ---------- Инициализация ---------- */
+  async function init(){
+    $('roleBadge').textContent = isHost ? 'Вы — преподаватель' : 'Вы — ученик';
+    $('hint').textContent = 'Разрешите доступ к микрофону/камере.';
+    const ask = $('askBtn'); if (ask) ask.onclick = requestAccessFromUserGesture;
+
+    const status = await checkPermissions();
+    if (status === 'granted') {
+      try {
+        await getMedia();
+        $('permBanner').style.display = 'none';
+        setMic(true); setCam(true);
+        await initPeerFlow();
+      } catch {
+        $('permBanner').style.display = 'block';
+      }
+    } else {
+      $('permBanner').style.display = 'block';
+    }
+
+    $('micBtn').onclick = ()=> setMic(!(localStream?.getAudioTracks()[0]?.enabled));
+    $('camBtn').onclick = ()=> setCam(!(localStream?.getVideoTracks()[0]?.enabled));
+    $('musicMode').onchange = async (e)=>{
+      musicEnabled = e.target.checked;
+      const newStream = await getMedia();
+      if(currentCall){
+        const senders = currentCall.peerConnection.getSenders();
+        const nA = newStream.getAudioTracks()[0], nV = newStream.getVideoTracks()[0];
+        const sA = senders.find(s=>s.track?.kind==='audio'), sV = senders.find(s=>s.track?.kind==='video');
+        if(sA && nA) sA.replaceTrack(nA);
+        if(sV && nV) sV.replaceTrack(nV);
+      }
+    };
+    $('sidetone').onchange = (e)=> toggleSidetone(e.target.checked);
+  }
+
+  init();
+  </script>
 </body>
 </html>
