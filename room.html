@@ -307,12 +307,13 @@ async function requestAccessFromUserGesture(){
 }
 
 async function initPeerFlow(){
+  // даём облаку PeerJS выдать нам стабильный id
   peer = new Peer();
+
   if (isHost) {
-    peer.on('open', id => {
-      const code = GEN();
-      peer.destroy(); peer = new Peer(code);
-      peer.on('open', () => showShare(code));
+    peer.on('open', (id) => {
+      // просто показываем ссылку с реальным id
+      showShare(id);
       bindHandlersAsHost();
     });
   } else if (joinId) {
@@ -320,7 +321,14 @@ async function initPeerFlow(){
   } else {
     location.href = '/';
   }
+
+  // На всякий случай: лог ошибок
+  peer.on('error', (e) => {
+    console.error('Peer error:', e);
+    $('hint').textContent = 'Не удалось подключиться к серверу. Обновите страницу или попробуйте позже.';
+  });
 }
+
 
 async function init(){
   $('roleBadge').textContent = isHost ? 'Вы — преподаватель' : 'Вы — ученик';
