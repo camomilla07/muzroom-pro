@@ -219,7 +219,7 @@ function startHosting(){
   peer.on('open',id=>{
     showShare(id);
     bindHandlersAsHost();
-    $('hint').textContent='Ссылка готова — отправьте ученику.';
+    $('hint').textContent='разрешите доступ к камере/микрофону';
   });
   peer.on('error',e=>{
     console.error(e);
