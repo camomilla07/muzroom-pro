@@ -221,18 +221,28 @@ async function init(){
 
 function showShare(code){
   const link = `${location.origin}/room.html?join=${encodeURIComponent(code)}`;
-  $('shareCode').hidden = false;
-  $('copyBtn').hidden = false;
-  $('shareCode').textContent = `Код: ${code}  ·  Ссылка: ${link}`;
-  $('hint').textContent = 'Отправьте ученику код или ссылку.';
-  $('copyBtn').onclick = async ()=>{
+
+  // текст и видимость панели
+  $('hint').textContent = 'Отправьте ученику ссылку:';
+  const box = $('shareCode');
+  box.textContent = link;
+  box.hidden = false;
+
+  const btn = $('copyBtn');
+  btn.hidden = false;
+  btn.onclick = async ()=>{
     try{
       await navigator.clipboard.writeText(link);
-      $('copyBtn').textContent = 'Ссылка скопирована!';
-      setTimeout(()=> $('copyBtn').textContent = 'Скопировать ссылку', 1800);
-    }catch{ alert(link); }
+      btn.textContent = 'Скопировано ✓';
+      setTimeout(()=>btn.textContent='Скопировать ссылку', 1500);
+    }catch{
+      // iOS Safari может не дать в буфер без явного взаимодействия — просто выделим текст
+      const r = document.createRange(); r.selectNodeContents(box);
+      const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    }
   };
 }
+
 
 function bindHandlersAsHost(){
   peer.on('call', call => {
