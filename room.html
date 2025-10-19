@@ -168,6 +168,10 @@ function setCam(on){
 async function init(){
   $('roleBadge').textContent = isHost ? 'Вы — преподаватель' : 'Вы — ученик';
   $('hint').textContent = 'Разрешите доступ к микрофону/камере.';
+  if (isHost){
+  $('hint').textContent = 'Генерируем код для ученика…';
+}
+
 
   // Получаем медиа
   try{
