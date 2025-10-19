@@ -1,164 +1,79 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Muzroom Pro — Уроки, которые звучат</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Muzroom Pro — уроки, которые звучат</title>
   <link rel="icon" href="/favicon.ico">
-  <meta name="description" content="Muzroom Pro — онлайн-платформа для индивидуальных музыкальных уроков. Чистый звук без шумоподавления." />
-
   <style>
     :root{
-      --bg:#f7f8fb;            /* светлый фон */
-      --paper:#ffffff;         /* карточки/панели */
-      --ink:#1f2430;           /* графитовый текст */
-      --muted:#5b657a;
-      --accent:#2e3543;        /* графитовый акцент для кнопок */
-      --accent-weak:#e7eaf2;   /* тонкая рамка */
-      --ring:0 0 0 4px rgba(46,53,67,.15); /* focus */
-      --radius:16px;
-      --shadow:0 12px 28px rgba(16,20,32,.08);
+      --bg:#f2f4f8; --paper:#fff; --ink:#1f2430; --muted:#677083;
+      --accent:#2e3543; --accent-weak:#e6eaf2; --radius:18px;
+      --shadow:0 18px 40px rgba(16,20,32,.06);
+      --ring:0 0 0 6px rgba(46,53,67,.12);
     }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Inter,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+    a{color:inherit;text-decoration:none}
 
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
-      color:var(--ink); background:
-        radial-gradient(900px 500px at 10% -10%, rgba(46,53,67,.06), transparent 60%),
-        radial-gradient(800px 500px at 110% 0%, rgba(46,53,67,.05), transparent 55%),
-        var(--bg);
-    }
+    header,main,footer{max-width:1080px;margin:0 auto;padding:14px}
+    header{display:flex;align-items:center;gap:12px}
+    .logo{width:34px;height:34px;border-radius:999px;background:conic-gradient(from 210deg,#2e3543,#4a5469,#2e3543);display:grid;place-items:center;color:#fff;font-weight:700}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700}
 
-    header{
-      max-width:1024px; margin:0 auto; padding:22px 18px;
-      display:flex; align-items:center; justify-content:space-between;
-    }
-    .brand{display:flex; align-items:center; gap:12px; text-decoration:none; color:var(--ink)}
-    .logo{
-      width:36px; height:36px; border-radius:999px;
-      background: conic-gradient(from 210deg, #2e3543, #4a5469, #2e3543);
-      display:grid; place-items:center; color:#fff; font-weight:700;
-      box-shadow: var(--shadow);
-    }
-    .brand b{font-weight:700; letter-spacing:.2px}
+    .hero{background:var(--paper);border:1px solid var(--accent-weak);border-radius:24px;box-shadow:var(--shadow);padding:28px}
+    .h1{font-size:42px;line-height:1.1;margin:0 0 8px}
+    .sub{color:var(--muted);margin:0 0 22px}
+    .row{display:flex;flex-wrap:wrap;gap:14px}
 
-    .hero{
-      max-width:1024px; margin:0 auto; padding:28px 18px 18px;
-      display:grid; gap:20px;
-    }
-    h1{ font-size: clamp(28px, 5.5vw, 48px); line-height:1.08; margin:4px 0 8px; }
-    .sub{ color:var(--muted); font-size: clamp(15px, 2.3vw, 18px); margin:0 0 18px; }
+    .btn{appearance:none;border:0;border-radius:16px;padding:16px 22px;font-weight:700;cursor:pointer;transition:.2s}
+    .btn:focus-visible{outline:none;box-shadow:var(--ring)}
+    .btn-main{background:var(--accent);color:#fff}
+    .btn-main:hover{transform:translateY(-1px)}
+    .btn-ghost{background:#fff;border:1px solid var(--accent-weak)}
+    .btn-ghost:hover{transform:translateY(-1px)}
 
-    .panel{
-      background:var(--paper); border:1px solid var(--accent-weak); border-radius:var(--radius);
-      padding:18px; box-shadow: var(--shadow);
-    }
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+    @media(max-width:860px){.grid{grid-template-columns:1fr}}
 
-    .cta{ display:flex; gap:12px; flex-wrap:wrap; }
-    .btn{
-      appearance:none; border:none; border-radius:12px; padding:14px 18px; font-weight:600; cursor:pointer;
-      transition: box-shadow .25s ease, transform .02s ease, background-color .25s ease, color .25s ease, border-color .25s ease;
-      outline:none;
-    }
-    .btn:focus-visible{ box-shadow: var(--ring); }
+    .card{background:var(--paper);border:1px solid var(--accent-weak);border-radius:18px;box-shadow:var(--shadow);padding:18px}
+    .card h3{margin:0 0 6px}
+    .muted{color:var(--muted)}
 
-    .btn-primary{
-      background:var(--accent); color:#fff;
-    }
-    .btn-primary:hover{
-      box-shadow: 0 10px 20px rgba(46,53,67,.18);
-      background:#262c38;
-    }
-
-    .btn-secondary{
-      background:#fff; border:1px solid var(--accent-weak); color:var(--ink);
-    }
-    .btn-secondary:hover{
-      border-color:#cfd6e6;
-      box-shadow: 0 10px 20px rgba(46,53,67,.08) inset, 0 6px 14px rgba(46,53,67,.10);
-    }
-
-    .join{ display:none; gap:10px; margin-top:12px; flex-wrap:wrap; }
-    input{
-      background:#fff; border:1px solid var(--accent-weak); border-radius:12px; padding:12px 14px; min-width:220px;
-      font-size:15px; color:var(--ink); outline:none; transition: box-shadow .2s ease, border-color .2s ease;
-    }
-    input:focus{ border-color:#cfd6e6; box-shadow: var(--ring); }
-
-    .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:8px; }
-    @media (max-width:900px){ .cards{ grid-template-columns:1fr; } }
-
-    .card{ background:var(--paper); border:1px solid var(--accent-weak); border-radius:14px; padding:16px; }
-    .card h3{ margin:0 0 6px; font-size:18px }
-    .card p{ margin:0; color:var(--muted) }
-
-    footer{
-      max-width:1024px; margin:28px auto 40px; padding:0 18px; color:var(--muted);
-      display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between;
-    }
-    footer a{ color:var(--muted); text-decoration:none; border-bottom:1px dotted #bfc7d7 }
-    footer a:hover{ color:var(--ink) }
+    footer{display:flex;justify-content:space-between;color:var(--muted);font-size:14px}
+    @media(max-width:700px){footer{flex-direction:column;gap:6px}}
   </style>
 </head>
 <body>
-
-  <header class="panel" style="border:none; box-shadow:none; background:transparent;">
-    <a href="/" class="brand" aria-label="Muzroom Pro">
-      <span class="logo" aria-hidden="true">М</span>
-      <b>Muzroom Pro</b>
-    </a>
+  <header>
+    <a href="/" class="brand"><span class="logo">М</span> Muzroom Pro</a>
   </header>
 
-  <main class="hero">
-    <section class="panel" aria-labelledby="title">
-      <h1 id="title">Уроки, которые звучат</h1>
-      <p class="sub">Чистый звук без шумоподавления. Подходит для вокала и инструментов.</p>
-
-      <div class="cta" role="group" aria-label="Основные действия">
-        <button class="btn btn-primary" onclick="startAsTeacher()">Начать как преподаватель</button>
-        <button class="btn btn-secondary" onclick="toggleJoin()">Войти как ученик</button>
-      </div>
-
-      <div id="join" class="join">
-        <input id="code" placeholder="Код или ссылка" aria-label="Код комнаты">
-        <button class="btn btn-primary" onclick="joinByCode()">Войти</button>
+  <main>
+    <section class="hero">
+      <h1 class="h1">уроки, которые звучат</h1>
+      <p class="sub">чистый звук для занятий по вокалу с инструментами</p>
+      <div class="row">
+        <a class="btn btn-main" href="/room.html?host=1">начать как преподаватель</a>
+        <a class="btn btn-ghost" href="/room.html">войти как ученик</a>
       </div>
     </section>
 
-    <section class="cards" aria-label="Преимущества">
+    <section class="grid">
       <article class="card">
-        <h3>Музыкальный режим</h3>
-        <p>Без шумоподавления — фортепиано, гитара и голос звучат естественно.</p>
+        <h3>музыкальный режим</h3>
+        <p class="muted">подключение фортепиано и гитары</p>
       </article>
       <article class="card">
-        <h3>Просто по ссылке</h3>
-        <p>Ученику не нужна регистрация. Работает в мобильном интернете.</p>
+        <h3>просто по ссылке</h3>
+        <p class="muted">ученику не нужна регистрация</p>
       </article>
     </section>
   </main>
 
   <footer>
-    <div>Muzroom Pro — онлайн-платформа для музыкальных уроков</div>
-    <div>© 2025 Muzroom Pro · <a href="/privacy.html">Политика конфиденциальности</a></div>
+    <div>muzroom pro — онлайн платформа для музыкальных уроков</div>
+    <div>2025 muzroom pro — <a href="/privacy.html">Политика конфиденциальности</a></div>
   </footer>
-
-  <script>
-   function toggleJoin(){
-    const el = document.getElementById('join');
-    el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
-  }
-  function startAsTeacher(){
-    // сразу открываем комнату в режиме преподавателя
-    window.location.href = '/room.html?host=1';
-  }
-  function joinByCode(){
-    const v = document.getElementById('code').value.trim();
-    if(!v){ alert('Введите код или вставьте ссылку.'); return; }
-    // если вставили полную ссылку — идём по ней; если только код — формируем URL
-    if(/^https?:\/\//i.test(v)) window.location.href = v;
-    else window.location.href = '/room.html?join=' + encodeURIComponent(v);
-  }
-</script>
-
+</body>
 </html>
