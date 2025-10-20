@@ -2,115 +2,149 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <title>MuzRoom — Комната</title>
+  <title>Muzroom Pro — Комната</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <style>
-    :root { --gap:12px; --radius:10px; }
-    * { box-sizing: border-box; }
-    html, body { margin:0; padding:0; height:100%; overflow-x:hidden; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    .wrap { max-width: 960px; margin: 0 auto; padding: 16px; }
-    h1 { margin: 0 0 10px; font-size: 20px; }
-    .row { display:flex; flex-wrap:wrap; gap: var(--gap); align-items:center; }
-    .card { border:1px solid #ddd; border-radius: var(--radius); padding:16px; }
-    .muted { color:#666; font-size: 14px; }
-    .hidden { display:none !important; }
-    button, input[type="text"], input[type="url"] {
-      font: inherit; font-size:16px; /* чтобы iOS не зумил */
+    :root{
+      --bg1:#f7f7fb;        /* светлый фон как на главной */
+      --card:#ffffff;       /* плашки */
+      --ink:#111213;        /* текст */
+      --muted:#6b6f76;      /* вторичный текст */
+      --line:#e7e8ec;       /* границы */
+      --brand:#2c2cff;      /* основной акцент (похоже на кнопку на главной) */
+      --brand-ink:#fff;
+      --radius:16px;        /* большие скругления */
+      --radius-pill:9999px; /* пилюли */
+      --gap:14px;
     }
-    button { padding: 10px 14px; border-radius: 8px; border:1px solid #ccc; background:#f6f6f6; cursor:pointer; }
-    button:active { transform: translateY(1px); }
-    input[readonly] { background: #fafafa; }
-    .grid { display:grid; grid-template-columns: 1fr; gap: var(--gap); }
-    @media (min-width: 800px) {
-      .grid { grid-template-columns: 1.2fr 1fr; }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;height:100%;background:
+      radial-gradient(1200px 800px at 80% -10%, #eef0ff 0%, transparent 60%),
+      radial-gradient(1200px 800px at -10% 100%, #f3f5ff 0%, transparent 60%),
+      var(--bg1);
+      color:var(--ink); font: 16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      overflow-x:hidden;
+    }
+    a{color:inherit}
+    .wrap{max-width: 980px; margin:0 auto; padding: 24px 16px 40px}
+    header{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px}
+    .brand{display:flex; align-items:center; gap:10px; font-weight:700}
+    .monogram{display:grid; place-items:center; width:36px; height:36px; border-radius:10px; background:var(--ink); color:#fff; font-weight:700}
+    .brand b{font-size:18px}
+
+    .grid{display:grid; grid-template-columns: 1fr; gap:18px}
+    @media (min-width: 860px){ .grid{ grid-template-columns: 1.2fr 1fr } }
+
+    .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:18px; box-shadow: 0 1px 0 rgba(17,18,19,.04)}
+    h1{margin:0 0 8px; font-size:22px}
+    h2{margin:0 0 10px; font-size:18px}
+    .muted{color:var(--muted); font-size:14px}
+    .row{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+
+    .pill{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px; border-radius:var(--radius-pill); border:1px solid var(--line); background:#f7f8ff; cursor:pointer}
+    .pill.primary{background:var(--brand); color:var(--brand-ink); border-color:transparent}
+    .pill.ghost{background:#fff}
+    .pill:active{transform:translateY(1px)}
+
+    input[type="url"], input[type="text"]{
+      font:inherit; font-size:16px; width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:#fafbff
     }
 
-    /* Блок ссылки ученика */
-    #studentLinkWrap { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    #studentLink { flex:1 1 420px; min-width: 220px; padding:10px; border-radius:8px; border:1px solid #ccc; }
+    /* ссылка ученика */
+    #studentLinkWrap{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+    #studentLink{flex:1 1 420px; min-width:220px}
 
-    /* Видео/превью */
-    video, .videoBox { width:100%; max-height: 360px; background:#000; border-radius: var(--radius); }
-    video[playsinline] { object-fit: cover; }
-    .stat { display:flex; gap:8px; align-items:center; font-size:14px; color:#444; }
+    /* видео */
+    video{width:100%; max-height:360px; background:#000; border-radius:12px; object-fit:cover}
+    .stat{display:flex; gap:8px; align-items:center; font-size:14px; color:#444}
 
-    /* Плеер, который «не съезжает» */
-    .player { display:flex; align-items:center; gap:8px; width:100%; overflow:hidden; border:1px solid #e5e5e5; border-radius: var(--radius); padding:10px; }
-    .player .title { flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .player .time { flex:0 0 auto; font-variant-numeric: tabular-nums; font-size: 14px; }
-    .player button { flex:0 0 auto; }
-    .player input[type="range"] {
+    /* плеер — стабильный на мобилках */
+    .player{display:flex; align-items:center; gap:10px; width:100%; overflow:hidden; border:1px solid var(--line); border-radius:12px; padding:10px; background:#fff}
+    .player .title{flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .player .time{flex:0 0 auto; font-variant-numeric: tabular-nums; font-size: 14px}
+    .player button{flex:0 0 auto}
+    .player input[type="range"]{
       -webkit-appearance:none; appearance:none;
-      flex:0 0 200px; width:200px; height: 14px;
+      flex:0 0 220px; width:220px; height:16px
     }
-    .player input[type="range"]::-webkit-slider-runnable-track { height:4px; }
-    .player input[type="range"]::-webkit-slider-thumb {
+    .player input[type="range"]::-webkit-slider-runnable-track{height:4px}
+    .player input[type="range"]::-webkit-slider-thumb{
       -webkit-appearance:none; appearance:none;
-      width:16px; height:16px; border-radius:50%;
-      border:1px solid #aaa; background:#fff;
-      margin-top:-6px; /* центрировать над треком */
+      width:16px; height:16px; border-radius:50%; border:1px solid #aaa; background:#fff; margin-top:-6px
     }
     @media (max-width:520px){
-      .player { flex-wrap:wrap; }
-      .player input[type="range"] { flex: 1 0 100%; width:100%; }
+      .player{flex-wrap:wrap}
+      .player input[type="range"]{flex:1 0 100%; width:100%}
     }
 
-    .warn { padding:10px; border-radius:8px; background:#fff4e5; border:1px solid #ffd19a; color:#7a4b00; }
-    .ok { padding:10px; border-radius:8px; background:#e9fff0; border:1px solid #a9e7bf; color:#145c2c; }
+    .warn{padding:10px; border-radius:12px; background:#fff4e5; border:1px solid #ffd19a; color:#7a4b00}
+    .ok{padding:10px; border-radius:12px; background:#e9fff0; border:1px solid #a9e7bf; color:#145c2c}
+
+    footer{margin-top:22px; color:var(--muted); font-size:14px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Комната MuzRoom</h1>
-    <p class="muted">Открой как преподаватель — сгенерируется ссылка для ученика. Ученику достаточно открыть ссылку.</p>
+    <header>
+      <div class="brand"><div class="monogram">М</div><b>Muzroom Pro</b></div>
+      <a class="pill ghost" href="./index.html">на главную</a>
+    </header>
 
-    <div id="signalWarn" class="warn hidden">Сигналинг-сервер не найден. Подключение ученик↔преподаватель пока недоступно. (Это не ошибка сайта — просто нет WebSocket / Socket.IO на бэкенде.)</div>
-    <div id="signalOk" class="ok hidden">Сигналинг подключён. Можно создавать звонок и подключаться по ссылке.</div>
+    <div id="signalWarn" class="warn" style="display:none">Сигналинг не найден (нет WebSocket/Socket.IO на сервере). Подключение преподаватель↔ученик пока недоступно.</div>
+    <div id="signalOk" class="ok" style="display:none">Сигналинг подключён. Можно звонить и подключаться по ссылке.</div>
 
-    <div class="card grid">
-      <section>
-        <h2 style="margin-top:0">Ссылка для ученика</h2>
+    <div class="grid">
+      <section class="card">
+        <h1>Ссылка для ученика</h1>
         <div id="studentLinkWrap">
           <input id="studentLink" type="url" readonly value="Пока нет ссылки" />
-          <button id="copyBtn" type="button">Скопировать</button>
+          <button id="copyBtn" class="pill" type="button">Скопировать ссылку</button>
         </div>
         <p class="muted" id="roleHint"></p>
 
-        <div style="height:8px"></div>
-        <div class="row">
-          <button id="allowBtn" type="button">Открыть доступ к микрофону/камере</button>
-          <button id="startCallBtn" type="button" class="hidden">Начать звонок (преподаватель)</button>
+        <div class="row" style="margin-top:10px">
+          <button id="allowBtn" class="pill primary" type="button">Разрешить микрофон/камеру</button>
+          <button id="startCallBtn" class="pill" type="button" style="display:none">Начать звонок (преподаватель)</button>
         </div>
 
-        <div style="height:8px"></div>
-        <video id="localVideo" playsinline autoplay muted class="hidden"></video>
-        <video id="remoteVideo" playsinline autoplay class="hidden"></video>
-        <div id="avStat" class="stat hidden">Микрофон: <span id="micStat">—</span> • Камера: <span id="camStat">—</span></div>
+        <div style="height:10px"></div>
+        <video id="localVideo" playsinline autoplay muted style="display:none"></video>
+        <video id="remoteVideo" playsinline autoplay style="display:none"></video>
+        <div id="avStat" class="stat" style="display:none">микрофон: <span id="micStat">—</span> • камера: <span id="camStat">—</span></div>
       </section>
 
-      <section>
-        <h2 style="margin-top:0">Плейлист / аудио</h2>
+      <section class="card">
+        <h2>Плейлист урока</h2>
         <div class="player" id="player">
-          <button id="playPause" type="button">▶</button>
+          <button id="playPause" class="pill" type="button" aria-label="Play/Pause">▶</button>
           <div class="title" id="trackTitle">Файл не выбран</div>
           <input id="seek" type="range" min="0" max="100" step="0.1" value="0" />
           <div class="time" id="time">0:00 / 0:00</div>
           <audio id="audio" preload="metadata"></audio>
         </div>
-        <div style="height:8px"></div>
-        <input id="file" type="file" accept="audio/*">
-        <p class="muted">На iOS/Android автоплей запрещён — воспроизведение начнётся после нажатия.</p>
+
+        <div class="row" style="margin-top:10px">
+          <!-- Кнопка-лейбл — работает на iOS/Android -->
+          <label for="file" class="pill">Загрузить аудио</label>
+          <input id="file" type="file" accept="audio/*" style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none">
+          <button id="clearBtn" class="pill" type="button">Очистить</button>
+        </div>
+        <p class="muted">На iOS/Android воспроизведение начнётся после нажатия на ▶.</p>
       </section>
     </div>
+
+    <footer>
+      <div>muzroom pro — онлайн платформа для музыкальных уроков</div>
+      <div>2025 muzroom pro — <a href="./privacy.html">Политика конфиденциальности</a></div>
+    </footer>
   </div>
 
-  <!-- WebRTC совместимость -->
+  <!-- webrtc adapter -->
   <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-  <!-- (необязательно) Socket.IO, если есть на сервере: -->
-  <script src="/socket.io/socket.io.js" defer onerror="/* ок, просто нет socket.io */"></script>
+  <!-- опционально Socket.IO (если поднят на сервере) -->
+  <script src="/socket.io/socket.io.js" defer onerror="/* ок — сигналинга нет */"></script>
 
-  <!-- Твой основной JS -->
   <script src="./app.js"></script>
 </body>
 </html>
