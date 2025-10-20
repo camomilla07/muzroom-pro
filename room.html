@@ -15,315 +15,354 @@
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{
-      margin:0;
-      font-family:system-ui,-apple-system,Inter,Segoe UI,Roboto,Arial,sans-serif;
-      color:var(--ink);
-      background:var(--bg)
-    }
+    body{margin:0;font-family:system-ui,-apple-system,Inter,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
     a{color:inherit;text-decoration:none}
     header,main,footer{max-width:1080px;margin:0 auto;padding:14px}
     header{display:flex;align-items:center;gap:12px}
     .logo{width:34px;height:34px;border-radius:999px;background:conic-gradient(from 210deg,#2e3543,#4a5469,#2e3543);display:grid;place-items:center;color:#fff;font-weight:700}
     .brand{display:flex;align-items:center;gap:10px;font-weight:700}
+
     .panel{background:var(--paper);border:1px solid var(--accent-weak);border-radius:18px;box-shadow:var(--shadow);padding:16px}
     .top{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:6px 0 14px}
     @media(max-width:900px){.top{grid-template-columns:1fr}}
     .top-title{color:var(--muted);margin-bottom:8px;font-weight:600}
-    .code{
-      font-family:ui-monospace,Menlo,Consolas,monospace;
-      background:#f0f3fa;
-      border:1px dashed #cdd5e6;
-      border-radius:14px;
-      padding:12px 14px;
-      min-height:48px;
-      display:flex;
-      align-items:center;
-      overflow-x:auto;
-    }
+    .code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#f0f3fa;border:1px dashed #cdd5e6;border-radius:14px;padding:12px 14px;min-height:48px;display:flex;align-items:center;overflow-x:auto}
     .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
     .btn{appearance:none;border:0;border-radius:14px;padding:12px 18px;font-weight:700;cursor:pointer;transition:.2s}
     .btn:focus-visible{outline:none;box-shadow:var(--ring)}
     .btn-main{background:var(--accent);color:#fff}
     .btn-ghost{background:#fff;border:1px solid var(--accent-weak)}
     .btn-main:hover,.btn-ghost:hover{transform:translateY(-1px)}
+    .btn-xs{padding:8px 12px;border-radius:10px;font-weight:600}
+
     .grid{display:grid;grid-template-columns:2fr 1fr;gap:20px}
     @media(max-width:1000px){.grid{grid-template-columns:1fr}}
     video,.audio{width:100%;background:#0b0f1a;border-radius:14px}
     .muted{color:var(--muted)}
     .switch-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
-    footer{display:flex;justify-content:space-between;color:var(--muted);font-size:14px;margin-top:16px}
-    @media(max-width:700px){footer{flex-direction:column;gap:6px}}
+
+    .hidden{display:none !important}
+
+    /* Плейлист */
+    .table{width:100%;border-collapse:separate;border-spacing:0 8px}
+    .tr{display:grid;grid-template-columns:1fr 120px 110px 110px;gap:12px;align-items:center;background:#f9fbff;border:1px solid #e6ecf7;border-radius:12px;padding:8px 12px}
+    @media(max-width:680px){.tr{grid-template-columns:1fr 90px 90px 90px}}
+    .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .time{font-variant-numeric:tabular-nums;color:var(--muted)}
+    .gain{display:flex;align-items:center;gap:8px}
+    .gain input[type="range"]{width:110px}
   </style>
 </head>
 <body>
-  <header>
-    <a href="/" class="brand"><span class="logo">М</span> Muzroom Pro</a>
-  </header>
+<header>
+  <a href="/" class="brand"><span class="logo">М</span> Muzroom Pro</a>
+</header>
 
-  <main>
-    <!-- верхняя двойная полоса -->
-    <section class="top">
-      <!-- слева: ссылка ученику -->
-      <article class="panel">
-        <div class="top-title">ссылка для ученика</div>
-        <div id="shareCode" class="code">Пока нет ссылки</div>
-        <div class="row">
-          <button id="copyBtn" class="btn btn-ghost" disabled>Скопировать ссылку</button>
-          <button id="genBtn" class="btn btn-main">Создать ссылку</button>
-        </div>
-      </article>
+<main>
+  <!-- верхняя полоса -->
+  <section class="top">
+    <article class="panel" id="shareBlock">
+      <div class="top-title">ссылка для ученика</div>
+      <div id="shareCode" class="code">Пока нет ссылки</div>
+      <div class="row">
+        <button id="copyBtn" class="btn btn-ghost" disabled>Скопировать ссылку</button>
+      </div>
+    </article>
 
-      <!-- справа: пермишены -->
-      <article class="panel">
-        <div class="top-title" id="hint">разрешите доступ к микрофону/камере</div>
-        <div class="row">
-          <button id="askBtn" class="btn btn-main">Разрешить</button>
-        </div>
-        <section id="permBanner" style="display:none"></section>
-      </article>
-    </section>
+    <article class="panel">
+      <div class="top-title" id="hint">разрешите доступ к микрофону/камере</div>
+      <div class="row">
+        <button id="askBtn" class="btn btn-main">Разрешить</button>
+      </div>
 
-    <!-- видео -->
-    <section class="grid">
-      <article class="panel">
-        <video id="remoteVideo" autoplay playsinline></video>
-        <div id="remoteState" class="muted" style="margin-top:8px">ожидание ученика…</div>
-      </article>
-      <article class="panel">
-        <video id="localVideo" autoplay playsinline muted></video>
-        <div class="switch-row">
-          <button id="micBtn" class="btn btn-main">микрофон: вкл</button>
-          <button id="camBtn" class="btn btn-ghost">камера: вкл</button>
-        </div>
-        <div class="switch-row">
-          <label><input id="musicMode" type="checkbox" checked> музыкальный режим</label>
-        </div>
-        <div class="switch-row">
-          <label><input id="sidetone" type="checkbox"> слышать себя (в наушниках)</label>
-        </div>
-        <audio id="monitor" class="audio" controls hidden></audio>
-      </article>
-    </section>
-  </main>
+      <div class="top-title" style="margin-top:16px">загрузить свои аудио файлы</div>
+      <div class="row">
+        <input id="fileInput" type="file" multiple accept="audio/*" class="btn-ghost" style="padding:10px 12px;border-radius:12px;border:1px dashed #cdd5e6;background:#f8fbff">
+        <button id="clearList" class="btn btn-ghost btn-xs">Очистить плейлист</button>
+      </div>
+    </article>
+  </section>
 
-  <footer>
-    <div>muzroom pro – онлайн платформа для музыкальных уроков</div>
-    <div>2025 muzroom pro – <a href="/privacy.html">Политика конфиденциальности</a></div>
-  </footer>
+  <!-- видео -->
+  <section class="grid">
+    <article class="panel">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <div id="remoteState" class="muted" style="margin-top:8px">ожидание ученика…</div>
+    </article>
+    <article class="panel">
+      <video id="localVideo" autoplay playsinline muted></video>
+      <div class="switch-row">
+        <button id="micBtn" class="btn btn-main">микрофон: вкл</button>
+        <button id="camBtn" class="btn btn-ghost">камера: вкл</button>
+      </div>
+      <div class="switch-row">
+        <label><input id="musicMode" type="checkbox" checked> музыкальный режим</label>
+        <label><input id="sidetone" type="checkbox"> слышать себя (в наушниках)</label>
+      </div>
+      <audio id="monitor" class="audio hidden" controls></audio>
+    </article>
+  </section>
+
+  <!-- плейлист -->
+  <section class="panel" style="margin-top:14px">
+    <div class="top-title">плейлист урока</div>
+    <div id="table"></div>
+  </section>
+</main>
+
+<footer class="panel" style="margin:16px auto;display:flex;justify-content:space-between;gap:8px">
+  <div class="muted">muzroom pro – онлайн платформа для музыкальных уроков</div>
+  <div class="muted">2025 muzroom pro – <a href="/privacy.html">Политика конфиденциальности</a></div>
+</footer>
 
 <script>
-/* ---------- УТИЛИТЫ ---------- */
+/* ===== Состояние ===== */
 const $ = id => document.getElementById(id);
 const qp = new URLSearchParams(location.search);
 const isHost = qp.has('host');
 const joinId = qp.get('join') || null;
-const GEN = () => Math.random().toString(36).slice(2,8).toUpperCase();
 
 let localStream=null, remoteStream=null, peer=null, currentCall=null;
 let musicEnabled=true, monitorStarted=false;
 
-/* ---------- МЕДИА ---------- */
+// Web Audio для микширования
+let audioCtx=null, mixDest=null, micSource=null;
+let usingMixedTrack=false;
+
+// Плейлист (in-memory)
+const playlist = []; // [{name, buffer, duration}]
+let playingIndex = -1;
+let fileSource = null;
+let fileGainNode = null;
+
+/* ===== Утилиты ===== */
+const fmt = s => {
+  s = Math.max(0, Math.round(s));
+  const m = Math.floor(s/60), sec = (s%60).toString().padStart(2,'0');
+  return `${m}:${sec}`;
+};
+
+/* ===== Медиа ===== */
 function getConstraints(){
   return {
     audio:{
-      echoCancellation:!musicEnabled,
-      noiseSuppression:!musicEnabled,
-      autoGainControl:!musicEnabled,
-      channelCount:1,
-      sampleRate:48000
+      echoCancellation: !musicEnabled,
+      noiseSuppression: !musicEnabled,
+      autoGainControl: !musicEnabled,
+      channelCount:1, sampleRate:48000
     },
     video:true
   };
 }
 async function getMedia(){
   if(localStream) localStream.getTracks().forEach(t=>t.stop());
-  localStream=await navigator.mediaDevices.getUserMedia(getConstraints());
-  $('localVideo').srcObject=localStream;
+  localStream = await navigator.mediaDevices.getUserMedia(getConstraints());
+  const v=$('localVideo'); v.srcObject=localStream; v.muted=true; v.setAttribute('playsinline',''); try{await v.play();}catch(_){}
+  // собрать аудиограф
+  ensureGraph();
+  // перезадать микрофонный источник
+  if(micSource) try{ micSource.disconnect(); }catch(_){}
+  micSource = audioCtx.createMediaStreamSource(localStream);
+  micSource.connect(mixDest);
+  maybeUseMixedOutgoing();
   return localStream;
 }
 
-/* ---------- СЛЫШАТЬ СЕБЯ ---------- */
+/* ===== Слышать себя ===== */
 function toggleSidetone(on){
   const a=$('monitor');
   if(on){
     if(!monitorStarted){
-      a.hidden=false;a.srcObject=localStream;a.muted=false;
-      a.play().catch(e=>console.log('Не удалось воспроизвести мониторинг:', e));
+      a.classList.remove('hidden'); a.srcObject=localStream; a.muted=false; a.play().catch(()=>{});
       monitorStarted=true;
     }
   }else{
-    a.pause();a.srcObject=null;a.hidden=true;monitorStarted=false;
+    a.pause(); a.srcObject=null; a.classList.add('hidden'); monitorStarted=false;
   }
 }
 
-/* ---------- КНОПКИ ---------- */
+/* ===== Кнопки мик/кам ===== */
 function setMic(on){
   localStream?.getAudioTracks().forEach(t=>t.enabled=on);
-  $('micBtn').textContent=`микрофон: ${on?'вкл':'выкл'}`;
+  $('micBtn').textContent = `микрофон: ${on?'вкл':'выкл'}`;
 }
 function setCam(on){
   localStream?.getVideoTracks().forEach(t=>t.enabled=on);
-  $('camBtn').textContent=`камера: ${on?'вкл':'выкл'}`;
+  $('camBtn').textContent = `камера: ${on?'вкл':'выкл'}`;
 }
 
-/* ---------- ОБМЕН ---------- */
+/* ===== Ссылка для ученика (только у учителя) ===== */
 function showShare(code){
-  const link=`${location.origin}/room.html?join=${encodeURIComponent(code)}`;
-  $('shareCode').textContent=link;
-  $('copyBtn').disabled=false;
-  $('copyBtn').onclick=async()=>{
-    try{
-      await navigator.clipboard.writeText(link);
-      $('copyBtn').textContent='Скопировано ✓';
-      setTimeout(()=>$('copyBtn').textContent='Скопировать ссылку',1500);
-    }catch{
-      const r=document.createRange();r.selectNodeContents($('shareCode'));
-      const s=window.getSelection();s.removeAllRanges();s.addRange(r);
-      document.execCommand('copy');
-      s.removeAllRanges();
-      $('copyBtn').textContent='Скопировано ✓';
-      setTimeout(()=>$('copyBtn').textContent='Скопировать ссылку',1500);
+  const link = `${location.origin}/room.html?join=${encodeURIComponent(code)}`;
+  $('shareCode').textContent = link;
+  const btn=$('copyBtn'); btn.disabled=false;
+  btn.onclick = async ()=>{
+    try{ await navigator.clipboard.writeText(link); btn.textContent='Скопировано ✓'; setTimeout(()=>btn.textContent='Скопировать ссылку',1500); }
+    catch{
+      const r=document.createRange(); r.selectNodeContents($('shareCode'));
+      const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
     }
   };
 }
 
-/* ---------- PEER ---------- */
+/* ===== PeerJS ===== */
 function bindHandlersAsHost(){
   peer.on('call', call=>{
-    currentCall=call;
-    call.answer(localStream);
-    bindStreamHandlers(call);
+    currentCall=call; call.answer(localStream);
+    bindStreamHandlers(call); maybeUseMixedOutgoing();
   });
 }
 function connectAsStudent(code){
-  $('shareCode').textContent=`Подключение к ${code}`;
   $('hint').textContent='Идёт звонок преподавателю…';
-  const call=peer.call(code,localStream);
-  currentCall=call;
-  bindStreamHandlers(call);
+  const call=peer.call(code, localStream);
+  currentCall=call; bindStreamHandlers(call); maybeUseMixedOutgoing();
 }
 function bindStreamHandlers(call){
-  call.on('stream',rs=>{
-    remoteStream=rs;
-    $('remoteVideo').srcObject=rs;
-    $('remoteState').textContent='Соединение установлено';
-  });
-  call.on('close',()=>$('remoteState').textContent='Связь закончена');
-  call.on('error',e=>{
-    console.error(e);
-    $('remoteState').textContent='Ошибка соединения. Попробуйте обновить.';
-  });
+  call.on('stream', rs=>{ remoteStream=rs; $('remoteVideo').srcObject=rs; $('remoteState').textContent='Соединение установлено'; });
+  call.on('close', ()=>{ $('remoteState').textContent='Связь закончена'; });
+  call.on('error', e=>{ console.error(e); $('remoteState').textContent='Ошибка соединения. Обновите страницу.'; });
 }
-
-/* ---------- СОЗДАНИЕ ССЫЛКИ ---------- */
 function startHosting(){
   $('hint').textContent='Генерируем ссылку…';
-  try{peer?.destroy?.();}catch{}
-  peer=new Peer();
-  peer.on('open',id=>{
-    showShare(id);
-    bindHandlersAsHost();
-    $('hint').textContent='разрешите доступ к камере/микрофону';
+  try{ peer?.destroy?.(); }catch(_){}
+  peer = new Peer();
+  peer.on('open', id=>{ showShare(id); bindHandlersAsHost(); $('hint').textContent='Ссылка готова — отправьте ученику.'; });
+  peer.on('error', e=>{ console.error(e); $('hint').textContent='Не удалось подключиться. Попробуйте ещё раз.'; });
+}
+function initPeerFlow(){
+  try{ peer?.destroy?.(); }catch(_){}
+  peer = new Peer();
+  if(joinId){ peer.on('open', ()=>connectAsStudent(joinId)); }
+  else location.href='/';
+  peer.on('error', e=>{ console.error(e); $('hint').textContent='Проблема с сервером. Обновите страницу.'; });
+}
+
+/* ===== Граф микширования ===== */
+function ensureGraph(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(!mixDest)  mixDest  = audioCtx.createMediaStreamDestination();
+  if(!fileGainNode){ fileGainNode = audioCtx.createGain(); fileGainNode.gain.value = 0.9; }
+}
+function maybeUseMixedOutgoing(){
+  if(!mixDest || !currentCall) return;
+  const track = mixDest.stream.getAudioTracks()[0]; if(!track) return;
+  const sender = currentCall.peerConnection.getSenders().find(s=>s.track && s.track.kind==='audio');
+  if(sender){ sender.replaceTrack(track); usingMixedTrack=true; }
+}
+
+/* ===== Плейлист ===== */
+function renderTable(){
+  const wrap=$('table'); wrap.innerHTML='';
+  if(!playlist.length){ wrap.innerHTML='<div class="muted">плейлист пуст</div>'; return; }
+  const frag=document.createDocumentFragment();
+  playlist.forEach((it,idx)=>{
+    const row=document.createElement('div'); row.className='tr';
+    const name=document.createElement('div'); name.className='name'; name.textContent=it.name;
+    const time=document.createElement('div'); time.className='time'; time.id=`time-${idx}`; time.textContent=fmt(it.duration);
+    const controls=document.createElement('div'); controls.style.display='flex'; controls.style.gap='8px';
+    const play=document.createElement('button'); play.className='btn btn-main btn-xs'; play.textContent=(playingIndex===idx?'Стоп':'Играть');
+    const del=document.createElement('button'); del.className='btn btn-ghost btn-xs'; del.textContent='Удалить';
+    const gain=document.createElement('div'); gain.className='gain';
+    const rng=document.createElement('input'); rng.type='range'; rng.min='0'; rng.max='1'; rng.step='0.01'; rng.value=fileGainNode?fileGainNode.gain.value:0.9;
+    gain.append('громк.:', rng);
+
+    play.onclick=()=>{ if(playingIndex===idx) stopPlayback(); else playIndex(idx); };
+    del.onclick=()=>{ if(playingIndex===idx) stopPlayback(); playlist.splice(idx,1); renderTable(); };
+    rng.oninput=(e)=>{ ensureGraph(); fileGainNode.gain.value=parseFloat(e.target.value); };
+
+    controls.append(play, del);
+    row.append(name, time, controls, gain);
+    frag.append(row);
   });
-  peer.on('error',e=>{
-    console.error(e);
-    $('hint').textContent='Не удалось подключиться. Попробуйте ещё раз.';
-  });
+  wrap.append(frag);
 }
 
-/* ---------- ПРАВА ---------- */
-async function checkPermissions(){
-  if(!navigator.permissions){$('permBanner').style.display='block';return 'prompt';}
-  try{
-    const mic=await navigator.permissions.query({name:'microphone'});
-    const cam=await navigator.permissions.query({name:'camera'});
-    if(mic.state==='granted'&&cam.state==='granted')return'granted';
-    $('permBanner').style.display='block';
-    return(mic.state==='denied'||cam.state==='denied')?'denied':'prompt';
-  }catch{return'prompt';}
-}
-async function requestAccessFromUserGesture(){
-  try{
-    await getMedia();
-    $('hint').textContent='Доступ разрешён. Можно начинать урок.';
-    setMic(true);setCam(true);
-    if(isHost)startHosting();else initPeerFlow();
-  }catch(e){
-    console.error(e);
-    $('hint').textContent='Доступ не получен. Проверьте настройки.';
-  }
-}
-async function initPeerFlow(){
-  peer=new Peer();
-  if(joinId){
-    peer.on('open',()=>connectAsStudent(joinId));
-  }else location.href='/';
+function stopPlayback(){
+  if(fileSource){ try{fileSource.stop(0);}catch(_){ } try{fileSource.disconnect();}catch(_){} fileSource=null; }
+  playingIndex=-1; renderTable();
 }
 
-/* ---------- ОБРАБОТКА КНОПКИ РАЗРЕШЕНИЯ ---------- */
-function bindAskButtonOnce(){
-  const askBtn = $('askBtn');
-  if (!askBtn) return;
-
-  const userGesture = async (ev) => {
-    ev.preventDefault();
-    askBtn.disabled = true;
-    try {
-      // подготовка видео для автоплея
-      const v = $('localVideo');
-      v.setAttribute('playsinline','');
-      v.setAttribute('muted','');
-      v.muted = true;
-
-      await requestAccessFromUserGesture();
-      // попытка воспроизведения после получения стрима
-      try { await v.play(); } catch (_) {}
-    } catch (e) {
-      console.error(e);
-      alert('Не удалось получить доступ к микрофону/камере. Проверьте разрешения браузера для сайта.');
-    } finally {
-      askBtn.disabled = false;
-    }
+function playIndex(idx){
+  if(!playlist[idx]) return;
+  ensureGraph();
+  stopPlayback();
+  const buf=playlist[idx].buffer;
+  fileSource = audioCtx.createBufferSource();
+  fileSource.buffer = buf;
+  fileSource.connect(fileGainNode);
+  fileGainNode.connect(mixDest);
+  fileGainNode.connect(audioCtx.destination); // локальный монитор
+  fileSource.start();
+  // тикаем таймер
+  const id = `time-${idx}`;
+  const startedAt = audioCtx.currentTime;
+  const raf = ()=>{
+    if(playingIndex!==idx) return;
+    const t = Math.min(buf.duration, audioCtx.currentTime - startedAt);
+    const el = document.getElementById(id); if(el) el.textContent = fmt(buf.duration - t);
+    if(t < buf.duration) requestAnimationFrame(raf);
   };
-
-  // навешиваем обработчики для разных типов устройств
-  ['click','touchend','pointerup'].forEach(ev =>
-    askBtn.addEventListener(ev, userGesture, {passive:false})
-  );
+  playingIndex = idx; renderTable(); requestAnimationFrame(raf);
+  fileSource.onended = ()=>{ stopPlayback(); };
+  maybeUseMixedOutgoing(); // гарантируем отправку микса
 }
 
-/* ---------- ИНИЦИАЛИЗАЦИЯ ---------- */
-async function init(){
+/* ===== Файлы: загрузка ===== */
+$('fileInput').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files||[]);
+  if(!files.length) return;
+  ensureGraph();
+  for(const f of files){
+    const arr = await f.arrayBuffer();
+    const buf = await audioCtx.decodeAudioData(arr);
+    playlist.push({name:f.name.replace(/\.(\w+)$/,''), buffer:buf, duration:buf.duration});
+  }
+  $('hint').textContent='Треки добавлены.';
+  renderTable();
+});
+$('clearList').onclick=()=>{ stopPlayback(); playlist.length=0; renderTable(); };
+
+/* ===== Ask разрешения (моб/десктоп) ===== */
+function bindAskButtonOnce(){
+  const askBtn=$('askBtn'); if(!askBtn) return;
+  const handler=async ev=>{
+    ev.preventDefault(); askBtn.disabled=true;
+    try{
+      await getMedia();
+      $('hint').textContent='Доступ разрешён. Можно начинать.';
+      setMic(true); setCam(true);
+      if(isHost) startHosting(); else initPeerFlow();
+    }catch(e){ console.error(e); $('hint').textContent='Не удалось получить доступ. Проверьте настройки сайта.'; }
+    finally{ askBtn.disabled=false; }
+  };
+  ['click','touchend','pointerup'].forEach(t=>askBtn.addEventListener(t,handler,{passive:false}));
+}
+
+/* ===== Инициализация ===== */
+(async function init(){
+  if(!isHost){ $('shareBlock').classList.add('hidden'); } // скрываем ссылку у ученика
+
   $('micBtn').onclick=()=>setMic(!(localStream?.getAudioTracks()[0]?.enabled));
   $('camBtn').onclick=()=>setCam(!(localStream?.getVideoTracks()[0]?.enabled));
-  $('musicMode').onchange=async e=>{
-    musicEnabled=e.target.checked;
-    const newStream=await getMedia();
-    if(currentCall){
-      const senders=currentCall.peerConnection.getSenders();
-      const nA=newStream.getAudioTracks()[0], nV=newStream.getVideoTracks()[0];
-      const sA=senders.find(s=>s.track?.kind==='audio'), sV=senders.find(s=>s.track?.kind==='video');
-      if(sA&&nA)sA.replaceTrack(nA);
-      if(sV&&nV)sV.replaceTrack(nV);
-    }
-  };
+  $('musicMode').onchange=async e=>{ musicEnabled=e.target.checked; await getMedia(); };
   $('sidetone').onchange=e=>toggleSidetone(e.target.checked);
-  $('genBtn').onclick=startHosting;
 
-  // привязываем обработчики для кнопки разрешения
   bindAskButtonOnce();
+  renderTable();
 
-  const status=await checkPermissions();
-  if(status==='granted'){
-    await getMedia();
-    $('hint').textContent='Доступ разрешён.';
-    setMic(true);setCam(true);
-    if(isHost)startHosting();else initPeerFlow();
+  // автозапуск, если права уже даны
+  if(navigator.permissions){
+    try{
+      const mic=await navigator.permissions.query({name:'microphone'});
+      const cam=await navigator.permissions.query({name:'camera'});
+      if(mic.state==='granted' && cam.state==='granted'){
+        await getMedia(); setMic(true); setCam(true);
+        if(isHost) startHosting(); else initPeerFlow();
+        $('hint').textContent='Доступ уже разрешён.';
+      }
+    }catch(_){}
   }
-}
-
-init();
+})();
 </script>
 </body>
 </html>
