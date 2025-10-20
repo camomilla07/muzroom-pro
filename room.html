@@ -148,7 +148,8 @@ function toggleSidetone(on){
   const a=$('monitor');
   if(on){
     if(!monitorStarted){
-      a.hidden=false;a.srcObject=localStream;a.muted=false;a.play().catch(()=>{});
+      a.hidden=false;a.srcObject=localStream;a.muted=false;
+      a.play().catch(e=>console.log('Не удалось воспроизвести мониторинг:', e));
       monitorStarted=true;
     }
   }else{
@@ -179,6 +180,10 @@ function showShare(code){
     }catch{
       const r=document.createRange();r.selectNodeContents($('shareCode'));
       const s=window.getSelection();s.removeAllRanges();s.addRange(r);
+      document.execCommand('copy');
+      s.removeAllRanges();
+      $('copyBtn').textContent='Скопировано ✓';
+      setTimeout(()=>$('copyBtn').textContent='Скопировать ссылку',1500);
     }
   };
 }
@@ -256,7 +261,39 @@ async function initPeerFlow(){
   }else location.href='/';
 }
 
-/* ---------- ИНИЦ ---------- */
+/* ---------- ОБРАБОТКА КНОПКИ РАЗРЕШЕНИЯ ---------- */
+function bindAskButtonOnce(){
+  const askBtn = $('askBtn');
+  if (!askBtn) return;
+
+  const userGesture = async (ev) => {
+    ev.preventDefault();
+    askBtn.disabled = true;
+    try {
+      // подготовка видео для автоплея
+      const v = $('localVideo');
+      v.setAttribute('playsinline','');
+      v.setAttribute('muted','');
+      v.muted = true;
+
+      await requestAccessFromUserGesture();
+      // попытка воспроизведения после получения стрима
+      try { await v.play(); } catch (_) {}
+    } catch (e) {
+      console.error(e);
+      alert('Не удалось получить доступ к микрофону/камере. Проверьте разрешения браузера для сайта.');
+    } finally {
+      askBtn.disabled = false;
+    }
+  };
+
+  // навешиваем обработчики для разных типов устройств
+  ['click','touchend','pointerup'].forEach(ev =>
+    askBtn.addEventListener(ev, userGesture, {passive:false})
+  );
+}
+
+/* ---------- ИНИЦИАЛИЗАЦИЯ ---------- */
 async function init(){
   $('micBtn').onclick=()=>setMic(!(localStream?.getAudioTracks()[0]?.enabled));
   $('camBtn').onclick=()=>setCam(!(localStream?.getVideoTracks()[0]?.enabled));
@@ -272,8 +309,10 @@ async function init(){
     }
   };
   $('sidetone').onchange=e=>toggleSidetone(e.target.checked);
-  $('askBtn').onclick=requestAccessFromUserGesture;
   $('genBtn').onclick=startHosting;
+
+  // привязываем обработчики для кнопки разрешения
+  bindAskButtonOnce();
 
   const status=await checkPermissions();
   if(status==='granted'){
@@ -283,43 +322,6 @@ async function init(){
     if(isHost)startHosting();else initPeerFlow();
   }
 }
-  <script>
-// ... ваш код выше ...
-
-function bindAskButtonOnce(){
-  const askBtn = $('askBtn');
-  if (!askBtn) return;
-
-  const userGesture = async (ev) => {
-    ev.preventDefault();
-    askBtn.disabled = true;
-    try {
-      // на всякий случай подготовим <video> к автоплею
-      const v = $('localVideo');
-      v.setAttribute('playsinline','');
-      v.setAttribute('muted','');
-      v.muted = true;
-
-      await requestAccessFromUserGesture();   // тут вы вызываете getUserMedia()
-      // после того как стрим получен — покажем локальное видео
-      try { await v.play(); } catch (_) {}
-    } catch (e) {
-      console.error(e);
-      alert('Не удалось получить доступ к микрофону/камере. Проверьте разрешения браузера для сайта.');
-    } finally {
-      askBtn.disabled = false;
-    }
-  };
-
-  // навешиваем несколько типов жестов — повышает надёжность на iOS/Android
-  ['click','touchend','pointerup'].forEach(ev =>
-    askBtn.addEventListener(ev, userGesture, {passive:false})
-  );
-}
-
-// В вашем init() вызовите:
-bindAskButtonOnce();
-</script>
 
 init();
 </script>
