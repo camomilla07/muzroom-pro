@@ -34,6 +34,7 @@
     .btn-ghost{background:#fff;border:1px solid var(--accent-weak)}
     .btn-main:hover,.btn-ghost:hover{transform:translateY(-1px)}
     .btn-xs{padding:8px 12px;border-radius:10px;font-weight:600}
+    .icon{width:18px;height:18px;vertical-align:-3px}
 
     .grid{display:grid;grid-template-columns:2fr 1fr;gap:20px}
     @media(max-width:1000px){.grid{grid-template-columns:1fr}}
@@ -44,13 +45,16 @@
     .hidden{display:none !important}
 
     /* Плейлист */
-    .table{width:100%;border-collapse:separate;border-spacing:0 8px}
-    .tr{display:grid;grid-template-columns:1fr 120px 110px 110px;gap:12px;align-items:center;background:#f9fbff;border:1px solid #e6ecf7;border-radius:12px;padding:8px 12px}
-    @media(max-width:680px){.tr{grid-template-columns:1fr 90px 90px 90px}}
+    .table{display:grid;gap:10px}
+    .tr{display:grid;grid-template-columns:1fr 120px 130px 1fr;gap:12px;align-items:center;background:#f9fbff;border:1px solid #e6ecf7;border-radius:12px;padding:8px 12px}
+    @media(max-width:780px){.tr{grid-template-columns:1fr 100px 120px 1fr}}
     .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .time{font-variant-numeric:tabular-nums;color:var(--muted)}
+    .time{font-variant-numeric:tabular-nums;color:var(--muted);text-align:center}
     .gain{display:flex;align-items:center;gap:8px}
-    .gain input[type="range"]{width:110px}
+    .gain input[type="range"]{width:100%}
+    .progress{height:6px;border-radius:999px;background:#eaeef7;overflow:hidden}
+    .bar{height:100%;width:0%;background:#2e3543;transition:width .1s linear}
+    .controls{display:flex;gap:8px}
   </style>
 </head>
 <body>
@@ -76,8 +80,8 @@
       </div>
 
       <div class="top-title" style="margin-top:16px">загрузить свои аудио файлы</div>
-      <div class="row">
-        <input id="fileInput" type="file" multiple accept="audio/*" class="btn-ghost" style="padding:10px 12px;border-radius:12px;border:1px dashed #cdd5e6;background:#f8fbff">
+      <div class="row" style="align-items:center">
+        <input id="fileInput" type="file" multiple accept="audio/*" style="padding:10px 12px;border-radius:12px;border:1px dashed #cdd5e6;background:#f8fbff">
         <button id="clearList" class="btn btn-ghost btn-xs">Очистить плейлист</button>
       </div>
     </article>
@@ -106,7 +110,7 @@
   <!-- плейлист -->
   <section class="panel" style="margin-top:14px">
     <div class="top-title">плейлист урока</div>
-    <div id="table"></div>
+    <div id="table" class="table"></div>
   </section>
 </main>
 
@@ -132,15 +136,32 @@ let usingMixedTrack=false;
 // Плейлист (in-memory)
 const playlist = []; // [{name, buffer, duration}]
 let playingIndex = -1;
-let fileSource = null;
-let fileGainNode = null;
+let fileSource = null;        // AudioBufferSourceNode
+let fileGainNode = null;      // GainNode
+let progRAF = 0;
 
-/* ===== Утилиты ===== */
-const fmt = s => {
-  s = Math.max(0, Math.round(s));
-  const m = Math.floor(s/60), sec = (s%60).toString().padStart(2,'0');
-  return `${m}:${sec}`;
+// SVG-иконки
+const ICON_PLAY = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const ICON_STOP = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>';
+
+/* ===== RTC/Peer конфиг ===== */
+const rtcConfig = {
+  iceServers: [
+    { urls: [
+      'stun:stun.l.google.com:19302',
+      'stun:stun1.l.google.com:19302',
+      'stun:stun2.l.google.com:19302',
+      'stun:stun.stunprotocol.org:3478',
+      'stun:stun.nextcloud.com:443'
+    ]}
+    // Для «железобетона» добавьте платный TURN и впишите сюда:
+    // ,{ urls:'turn:YOUR_TURN_HOST:3478', username:'USER', credential:'PASS' }
+  ]
 };
+function newPeer() {
+  try{ peer?.destroy?.(); }catch(_){}
+  return new Peer(undefined, { config: rtcConfig, debug: 1 });
+}
 
 /* ===== Медиа ===== */
 function getConstraints(){
@@ -160,7 +181,7 @@ async function getMedia(){
   const v=$('localVideo'); v.srcObject=localStream; v.muted=true; v.setAttribute('playsinline',''); try{await v.play();}catch(_){}
   // собрать аудиограф
   ensureGraph();
-  // перезадать микрофонный источник
+  // микрофон -> mix
   if(micSource) try{ micSource.disconnect(); }catch(_){}
   micSource = audioCtx.createMediaStreamSource(localStream);
   micSource.connect(mixDest);
@@ -192,8 +213,8 @@ function setCam(on){
 }
 
 /* ===== Ссылка для ученика (только у учителя) ===== */
-function showShare(code){
-  const link = `${location.origin}/room.html?join=${encodeURIComponent(code)}`;
+function showShare(id){
+  const link = `${location.origin}/room.html?join=${encodeURIComponent(id)}`;
   $('shareCode').textContent = link;
   const btn=$('copyBtn'); btn.disabled=false;
   btn.onclick = async ()=>{
@@ -224,17 +245,15 @@ function bindStreamHandlers(call){
 }
 function startHosting(){
   $('hint').textContent='Генерируем ссылку…';
-  try{ peer?.destroy?.(); }catch(_){}
-  peer = new Peer();
+  peer = newPeer();
   peer.on('open', id=>{ showShare(id); bindHandlersAsHost(); $('hint').textContent='Ссылка готова — отправьте ученику.'; });
-  peer.on('error', e=>{ console.error(e); $('hint').textContent='Не удалось подключиться. Попробуйте ещё раз.'; });
+  peer.on('error', e=>{ console.error(e); $('hint').textContent='Не удалось подключиться к сигналингу. Попробуйте ещё раз.'; });
 }
 function initPeerFlow(){
-  try{ peer?.destroy?.(); }catch(_){}
-  peer = new Peer();
+  peer = newPeer();
   if(joinId){ peer.on('open', ()=>connectAsStudent(joinId)); }
   else location.href='/';
-  peer.on('error', e=>{ console.error(e); $('hint').textContent='Проблема с сервером. Обновите страницу.'; });
+  peer.on('error', e=>{ console.error(e); $('hint').textContent='Проблема с сигналингом. Обновите страницу.'; });
 }
 
 /* ===== Граф микширования ===== */
@@ -254,34 +273,45 @@ function maybeUseMixedOutgoing(){
 function renderTable(){
   const wrap=$('table'); wrap.innerHTML='';
   if(!playlist.length){ wrap.innerHTML='<div class="muted">плейлист пуст</div>'; return; }
-  const frag=document.createDocumentFragment();
+
   playlist.forEach((it,idx)=>{
     const row=document.createElement('div'); row.className='tr';
+
     const name=document.createElement('div'); name.className='name'; name.textContent=it.name;
+
     const time=document.createElement('div'); time.className='time'; time.id=`time-${idx}`; time.textContent=fmt(it.duration);
-    const controls=document.createElement('div'); controls.style.display='flex'; controls.style.gap='8px';
-    const play=document.createElement('button'); play.className='btn btn-main btn-xs'; play.textContent=(playingIndex===idx?'Стоп':'Играть');
-    const del=document.createElement('button'); del.className='btn btn-ghost btn-xs'; del.textContent='Удалить';
-    const gain=document.createElement('div'); gain.className='gain';
-    const rng=document.createElement('input'); rng.type='range'; rng.min='0'; rng.max='1'; rng.step='0.01'; rng.value=fileGainNode?fileGainNode.gain.value:0.9;
-    gain.append('громк.:', rng);
 
+    const ctr=document.createElement('div'); ctr.className='controls';
+    const play=document.createElement('button'); play.className='btn btn-main btn-xs';
+    play.innerHTML = (playingIndex===idx? ICON_STOP+' Стоп' : ICON_PLAY+' Играть');
     play.onclick=()=>{ if(playingIndex===idx) stopPlayback(); else playIndex(idx); };
-    del.onclick=()=>{ if(playingIndex===idx) stopPlayback(); playlist.splice(idx,1); renderTable(); };
-    rng.oninput=(e)=>{ ensureGraph(); fileGainNode.gain.value=parseFloat(e.target.value); };
 
-    controls.append(play, del);
-    row.append(name, time, controls, gain);
-    frag.append(row);
+    const del=document.createElement('button'); del.className='btn btn-ghost btn-xs'; del.textContent='Удалить';
+    del.onclick=()=>{ if(playingIndex===idx) stopPlayback(); playlist.splice(idx,1); renderTable(); };
+
+    ctr.append(play, del);
+
+    const right=document.createElement('div'); right.className='gain';
+    const rng=document.createElement('input'); rng.type='range'; rng.min='0'; rng.max='1'; rng.step='0.01'; rng.value=fileGainNode?fileGainNode.gain.value:0.9;
+    rng.oninput=(e)=>{ ensureGraph(); fileGainNode.gain.value=parseFloat(e.target.value); };
+    right.append('громк.:', rng);
+
+    // прогресс
+    const progWrap=document.createElement('div'); progWrap.className='progress';
+    const bar=document.createElement('div'); bar.className='bar'; bar.id=`bar-${idx}`;
+    progWrap.append(bar);
+
+    row.append(name, time, ctr, right);
+    wrap.append(row, progWrap);
   });
-  wrap.append(frag);
 }
 
+function cancelRAF(){ if(progRAF) cancelAnimationFrame(progRAF); progRAF=0; }
 function stopPlayback(){
+  cancelRAF();
   if(fileSource){ try{fileSource.stop(0);}catch(_){ } try{fileSource.disconnect();}catch(_){} fileSource=null; }
   playingIndex=-1; renderTable();
 }
-
 function playIndex(idx){
   if(!playlist[idx]) return;
   ensureGraph();
@@ -293,18 +323,26 @@ function playIndex(idx){
   fileGainNode.connect(mixDest);
   fileGainNode.connect(audioCtx.destination); // локальный монитор
   fileSource.start();
-  // тикаем таймер
-  const id = `time-${idx}`;
-  const startedAt = audioCtx.currentTime;
-  const raf = ()=>{
+
+  const started = audioCtx.currentTime;
+  const idTime = `time-${idx}`;
+  const idBar  = `bar-${idx}`;
+  playingIndex = idx; renderTable();
+
+  const tick = ()=>{
     if(playingIndex!==idx) return;
-    const t = Math.min(buf.duration, audioCtx.currentTime - startedAt);
-    const el = document.getElementById(id); if(el) el.textContent = fmt(buf.duration - t);
-    if(t < buf.duration) requestAnimationFrame(raf);
+    const t = Math.min(buf.duration, audioCtx.currentTime - started);
+    const left = buf.duration - t;
+    const timeEl = document.getElementById(idTime);
+    const barEl  = document.getElementById(idBar);
+    if(timeEl) timeEl.textContent = fmt(left);
+    if(barEl)  barEl.style.width = `${(t / buf.duration) * 100}%`;
+    progRAF = requestAnimationFrame(tick);
   };
-  playingIndex = idx; renderTable(); requestAnimationFrame(raf);
+  tick();
+
   fileSource.onended = ()=>{ stopPlayback(); };
-  maybeUseMixedOutgoing(); // гарантируем отправку микса
+  maybeUseMixedOutgoing();
 }
 
 /* ===== Файлы: загрузка ===== */
@@ -313,9 +351,11 @@ $('fileInput').addEventListener('change', async (e)=>{
   if(!files.length) return;
   ensureGraph();
   for(const f of files){
-    const arr = await f.arrayBuffer();
-    const buf = await audioCtx.decodeAudioData(arr);
-    playlist.push({name:f.name.replace(/\.(\w+)$/,''), buffer:buf, duration:buf.duration});
+    try{
+      const arr = await f.arrayBuffer();
+      const buf = await audioCtx.decodeAudioData(arr);
+      playlist.push({name:f.name.replace(/\.(\w+)$/,''), buffer:buf, duration:buf.duration});
+    }catch(err){ console.error('decode error', err); }
   }
   $('hint').textContent='Треки добавлены.';
   renderTable();
@@ -332,7 +372,7 @@ function bindAskButtonOnce(){
       $('hint').textContent='Доступ разрешён. Можно начинать.';
       setMic(true); setCam(true);
       if(isHost) startHosting(); else initPeerFlow();
-    }catch(e){ console.error(e); $('hint').textContent='Не удалось получить доступ. Проверьте настройки сайта.'; }
+    }catch(e){ console.error(e); $('hint').textContent='Не удалось получить доступ. Проверьте настройки сайта/браузера.'; }
     finally{ askBtn.disabled=false; }
   };
   ['click','touchend','pointerup'].forEach(t=>askBtn.addEventListener(t,handler,{passive:false}));
@@ -350,7 +390,7 @@ function bindAskButtonOnce(){
   bindAskButtonOnce();
   renderTable();
 
-  // автозапуск, если права уже даны
+  // авто-старт, если права уже были выданы
   if(navigator.permissions){
     try{
       const mic=await navigator.permissions.query({name:'microphone'});
