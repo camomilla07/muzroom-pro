@@ -296,113 +296,245 @@ function connectAsStudent(code){
   currentCall = call; bindStreamHandlers(call);
 }
 
+<script>
 /* ====== Аудиоплейлист (видят и слышат оба) ====== */
 const picker = $('filePicker');
 const playlist = $('playlist');
 const hiddenPlayer = $('hiddenPlayer');
-let fileTrack = null;        // аудиотрек, добавленный в PeerConnection
-let ctx = null, webAuSrc = null, webAuDest = null;
+
+let fileTrack = null;        // аудиотрек, который отправляем собеседнику
+let ctx = null, srcNode = null, outNode = null; // WebAudio
+let splitter=null, merger=null, gL=null, gR=null, hp=null; // для караоке
+let pitchSemis = 0;          // шаги в полутонах (может быть 0.5, -0.5 и т.п.)
+let dragging = null;         // {bar, fill, player}
+
+function isMobile() { return window.matchMedia('(max-width: 600px)').matches; }
+function shortTitle(name){
+  if(!isMobile()) return name;
+  const base = name.split('/').pop().split('\\').pop();
+  return (base.length > 4) ? (base.slice(0,4) + '…') : base;
+}
 
 function svgPlay(){return `<svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>`}
-function svgStop(){return `<svg class="icon" viewBox="0 0 24 24"><path d="M6 6h12v12H6z" fill="currentColor"/></svg>`}
+function svgPause(){return `<svg class="icon" viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z" fill="currentColor"/></svg>`}
 
 function renderItem(name, url){
   const row = document.createElement('div');
   row.className='track';
 
-  const play = document.createElement('button');
-  play.className='btn btn-ghost'; play.innerHTML = svgPlay();
-
-  const stop = document.createElement('button');
-  stop.className='btn btn-ghost'; stop.innerHTML = svgStop();
+  // play/pause
+  const pp = document.createElement('button');
+  pp.className='btn btn-ghost';
+  pp.innerHTML = svgPlay();
 
   const title = document.createElement('div');
-  title.textContent = name; title.style.minWidth='120px';
+  title.textContent = shortTitle(name);
+  title.style.minWidth='64px';
 
   const bar = document.createElement('div'); bar.className='bar';
   const fill = document.createElement('span'); bar.appendChild(fill);
 
-  const vol = document.createElement('input'); vol.type='range'; vol.min=0; vol.max=1; vol.step=0.01; vol.value=1; vol.className='vol';
+  const vol = document.createElement('input'); vol.type='range';
+  vol.min=0; vol.max=1; vol.step=0.01; vol.value=1; vol.className='vol';
 
-  row.append(play,stop,title,bar,vol);
+  row.append(pp,title,bar,vol);
   playlist.appendChild(row);
 
-  // проигрываем в скрытом <audio>
   const player = hiddenPlayer;
 
-  const syncProgress = ()=>{
-    if(player.duration>0) fill.style.width = `${(player.currentTime/player.duration)*100}%`;
-    if(!player.paused) requestAnimationFrame(syncProgress);
-  };
+  // обновление прогресса
+  function sync(){
+    if (player.duration>0) fill.style.width = `${(player.currentTime/player.duration)*100}%`;
+    if (!player.paused) requestAnimationFrame(sync);
+  }
 
-  play.onclick = async ()=>{
-    // переключаем источник
-    player.src = url;
-    player.currentTime = 0;
+  async function ensureWebAudioGraph(){
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+    if (!srcNode || srcNode.mediaElement !== player) {
+      // перестраиваем цепочку для текущего <audio>
+      if (srcNode) srcNode.disconnect();
+      srcNode = ctx.createMediaElementSource(player);
+      outNode = ctx.createMediaStreamDestination();
+      srcNode.connect(ctx.destination);   // чтобы слышали локально
+      srcNode.connect(outNode);           // чтобы отправлять собеседнику
+    }
+    // если уже есть активный звонок — добавим/заменим дорожку
+    if (currentCall) {
+      if (!fileTrack) {
+        fileTrack = outNode.stream.getAudioTracks()[0] || null;
+        if (fileTrack) currentCall.peerConnection.addTrack(fileTrack, outNode.stream);
+      }
+    }
+  }
+
+  // простой pitch: меняем скорость = меняется и тональность
+  function applyPitch(){
+    const rate = Math.pow(2, pitchSemis/12);
+    player.playbackRate = rate;
+  }
+
+  // перемотка по клику/перетаскиванию
+  function setTimeByClientX(clientX){
+    const rect = bar.getBoundingClientRect();
+    const x = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+    const ratio = rect.width ? (x / rect.width) : 0;
+    if (player.duration>0) player.currentTime = ratio * player.duration;
+  }
+  bar.addEventListener('pointerdown', (e)=>{
+    dragging = {bar, fill, player};
+    setTimeByClientX(e.clientX);
+  });
+  window.addEventListener('pointermove', (e)=>{
+    if (dragging && dragging.player===player) setTimeByClientX(e.clientX);
+  });
+  window.addEventListener('pointerup', ()=>{
+    if (dragging && dragging.player===player) dragging=null;
+  });
+
+  pp.onclick = async ()=>{
+    // если переключаемся на другой трек — задаём новый src
+    if (player.src !== url) {
+      player.src = url;
+      player.currentTime = 0;
+    }
+    applyPitch();
     player.volume = vol.value;
-    await player.play().catch(()=>{});
 
-    // шэрим дорожку в звонок
-    attachFileTrack(player);
-
-    requestAnimationFrame(syncProgress);
-  };
-
-  stop.onclick = ()=>{
-    player.pause();
-    detachFileTrack();
+    if (player.paused) {
+      await ensureWebAudioGraph();
+      await player.play().catch(()=>{});
+      pp.innerHTML = svgPause();
+      requestAnimationFrame(sync);
+    } else {
+      player.pause();
+      pp.innerHTML = svgPlay();
+    }
   };
 
   vol.oninput = ()=> player.volume = vol.value;
+
+  // когда трек закончился — вернуть кнопку в Play
+  player.addEventListener('ended', ()=>{
+    if (player.src === url) pp.innerHTML = svgPlay();
+  });
 }
 
-function attachFileTrack(player){
-  // Вариант 1: captureStream с <audio> (Chrome/Edge/Firefox, часто и Safari 16+)
-  let stream = null;
-  if (player.captureStream) {
-    stream = player.captureStream();
-    fileTrack = stream.getAudioTracks()[0] || null;
-  }
+// кнопка очистки
+$('clearList').onclick = ()=>{
+  playlist.innerHTML='';
+  hiddenPlayer.pause(); hiddenPlayer.removeAttribute('src');
+  if (picker.value) picker.value = '';
+};
 
-  // Вариант 2: WebAudio (fallback для Safari)
-  if(!fileTrack){
-    ctx = ctx || new (window.AudioContext||window.webkitAudioContext)();
-    webAuSrc = ctx.createMediaElementSource(player);
-    webAuDest = ctx.createMediaStreamDestination();
-    webAuSrc.connect(ctx.destination);      // чтобы слышал локально
-    webAuSrc.connect(webAuDest);            // линия в Peer
-    fileTrack = webAuDest.stream.getAudioTracks()[0] || null;
-  }
-
-  if(currentCall && fileTrack){
-    // добавляем вторую аудиодорожку к существующему соединению
-    currentCall.peerConnection.addTrack(fileTrack, stream || webAuDest.stream);
-  }
-}
-
-function detachFileTrack(){
-  if(currentCall && fileTrack){
-    const pc = currentCall.peerConnection;
-    pc.getSenders().forEach(s=>{
-      if(s.track && s.track === fileTrack){ try{s.replaceTrack(null);}catch{} }
-    });
-  }
-  fileTrack = null;
-}
-
+// загрузка файлов (мобилка: blob-URL)
 picker.addEventListener('change', ()=>{
   playlist.innerHTML='';
-  const files = Array.from(picker.files||[]);
-  files.forEach(f=>{
-    // iOS/Android: создаём безопасный blob-URL
+  Array.from(picker.files||[]).forEach(f=>{
     const url = URL.createObjectURL(f);
     renderItem(f.name, url);
   });
 });
-$('clearList').onclick = ()=>{
-  playlist.innerHTML=''; $('hiddenPlayer').pause(); detachFileTrack();
-  if(picker.value) picker.value = '';
-};
+
+/* === Караоке (L−R), включается/выключается поверх WebAudio === */
+function applyKaraoke(on){
+  if (!ctx || !srcNode) return; // ещё не играем
+
+  // разрываем прошлые соединения
+  try { srcNode.disconnect(); } catch(_){}
+  if (splitter){ try{ splitter.disconnect(); }catch(_){} }
+  if (gL){ try{ gL.disconnect(); gR.disconnect(); merger.disconnect(); }catch(_){}
+    splitter = merger = gL = gR = hp = null;
+  }
+
+  if (on){
+    splitter = ctx.createChannelSplitter(2);
+    gL = ctx.createGain(); gR = ctx.createGain();
+    gL.gain.value = 1; gR.gain.value = -1;      // инверт правого
+    merger = ctx.createChannelMerger(2);
+
+    srcNode.connect(splitter);
+    splitter.connect(gL, 0); splitter.connect(gR, 1);
+    // сведём в один канал (или в оба одинаково)
+    const sum = ctx.createGain();               // L-R -> mono
+    gL.connect(sum); gR.connect(sum);
+
+    // чуть подрежем низ, чтобы бас не «плавал»
+    hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 120;
+    sum.connect(hp);
+
+    // в уши
+    hp.connect(ctx.destination);
+    // в WebRTC
+    outNode = outNode || ctx.createMediaStreamDestination();
+    hp.connect(outNode);
+
+  } else {
+    // обычный режим: напрямую
+    outNode = outNode || ctx.createMediaStreamDestination();
+    srcNode.connect(ctx.destination);
+    srcNode.connect(outNode);
+  }
+
+  // обновим отправляемую дорожку
+  if (currentCall && outNode){
+    const newTrack = outNode.stream.getAudioTracks()[0];
+    if (fileTrack && newTrack && newTrack !== fileTrack){
+      const pc = currentCall.peerConnection;
+      const snd = pc.getSenders().find(s=>s.track === fileTrack);
+      if (snd) try{ snd.replaceTrack(newTrack); }catch(_){}
+      fileTrack = newTrack;
+    } else if (!fileTrack && newTrack){
+      currentCall.peerConnection.addTrack(newTrack, outNode.stream);
+      fileTrack = newTrack;
+    }
+  }
+}
+
+/* === Кнопки управления высотой и караоке === */
+function addGlobalAudioControls(){
+  // панель рисуем один раз под плейлистом
+  if (document.getElementById('audioControls')) return;
+  const wrap = document.createElement('div');
+  wrap.id='audioControls';
+  wrap.className='row';
+  wrap.style.marginTop='12px';
+
+  const lbl = document.createElement('div');
+  lbl.className='muted small';
+  lbl.textContent='Высота:';
+
+  const minus = document.createElement('button');
+  minus.className='btn btn-ghost'; minus.textContent='♭ −0.5';
+
+  const plus = document.createElement('button');
+  plus.className='btn btn-ghost'; plus.textContent='♯ +0.5';
+
+  const reset = document.createElement('button');
+  reset.className='btn btn-ghost'; reset.textContent='сброс';
+
+  const val = document.createElement('div');
+  val.className='muted small'; val.style.minWidth='70px'; val.textContent='0';
+
+  const karo = document.createElement('button');
+  karo.className='btn btn-ghost'; karo.textContent='Караоке (минус вокал): выкл';
+  let karaokeOn = false;
+
+  minus.onclick = ()=> { pitchSemis -= 0.5; val.textContent=pitchSemis.toString(); hiddenPlayer.playbackRate = Math.pow(2, pitchSemis/12); };
+  plus.onclick  = ()=> { pitchSemis += 0.5; val.textContent=pitchSemis.toString(); hiddenPlayer.playbackRate = Math.pow(2, pitchSemis/12); };
+  reset.onclick = ()=> { pitchSemis = 0;   val.textContent='0'; hiddenPlayer.playbackRate = 1; };
+
+  karo.onclick = ()=>{
+    karaokeOn = !karaokeOn;
+    karo.textContent = 'Караоке (минус вокал): ' + (karaokeOn?'вкл':'выкл');
+    applyKaraoke(karaokeOn);
+  };
+
+  wrap.append(lbl,minus,plus,reset,val,karo);
+  playlist.after(wrap);
+}
+addGlobalAudioControls();
+</script>
+
 
 /* ====== ИНИТ UI И ЗВОНКА ====== */
 $('roleBadge').textContent = isHost ? 'Вы — преподаватель' : 'Вы — ученик';
