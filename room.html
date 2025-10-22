@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Muzroom Pro — Комната</title>
   <link rel="icon" href="/favicon.ico">
-  <!-- PeerJS (публичное облако) -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     :root{
@@ -33,17 +32,17 @@
     .btn-main:hover{box-shadow:0 10px 18px rgba(46,53,67,.18);background:#262c38}
     .btn-ghost{background:#fff;border:1px solid var(--accent-weak);color:var(--ink)}
     .btn-ghost:hover{border-color:#cfd6e6;box-shadow:0 8px 16px rgba(46,53,67,.08) inset,0 6px 14px rgba(46,53,67,.10)}
-    .badge{display:inline-block;padding:3px 8px;border-radius:8px;background:#ecf0f8;color:#2e3543;font-size:12px;font-weight:600}
     video,.audio{width:100%;background:#0b0f1a;border-radius:12px}
-    input[type="checkbox"]{width:18px;height:18px}
-    /* плейлист */
-    #playlist .track{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:10px;align-items:center;padding:8px;border:1px solid var(--accent-weak);border-radius:12px;background:#fafcff}
-    #playlist .bar{height:8px;background:#e8eef8;border-radius:6px;position:relative;overflow:hidden}
-    #playlist .bar span{position:absolute;left:0;top:0;bottom:0;width:0;background:#2e3543}
-    #playlist .vol{width:110px}
+
+    /* Плейлист */
+    #playlist{display:grid;gap:10px}
+    .track{display:grid;grid-template-columns:auto minmax(64px,1fr) 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--accent-weak);border-radius:12px;background:#fafcff}
+    .title{min-width:64px}
+    @media(max-width:600px){ .title{max-width:64px;overflow:hidden;white-space:nowrap} }
+    .bar{height:8px;background:#e8eef8;border-radius:6px;position:relative;overflow:hidden}
+    .bar span{position:absolute;left:0;top:0;bottom:0;width:0;background:#2e3543}
+    .vol{width:120px}
     .icon{width:18px;height:18px;display:block}
-    /* длинные названия на мобиле */
-    @media(max-width:600px){ #playlist .track > div:nth-child(2){max-width:64px;overflow:hidden} }
   </style>
 </head>
 <body>
@@ -52,9 +51,9 @@
   </header>
 
   <main>
-    <!-- Панель ссылки преподавателя -->
+    <!-- Панель ссылки (видна только у преподавателя) -->
     <section class="panel" id="sharePanel" style="display:none">
-      <div class="muted" id="roleBadge"></div>
+      <div class="muted small" id="roleBadge"></div>
       <div class="row" style="justify-content:space-between;margin-top:8px">
         <div class="code" id="shareCode" style="flex:1">Пока нет ссылки</div>
         <button class="btn btn-ghost" id="copyBtn" disabled>Скопировать ссылку</button>
@@ -65,8 +64,8 @@
     <section class="panel" id="permBanner" style="display:none">
       <div class="row" style="justify-content:space-between">
         <div>
-          <div class="badge">Требуется действие</div>
-          <div class="muted">Не удалось получить доступ. Проверьте настройки сайта/браузера.</div>
+          <div class="muted">Чтобы начать, разрешите доступ к камере и микрофону.</div>
+          <div class="small muted" id="iosHint" style="display:none">Если раньше запретили: aA → Настройки сайта → Камера/Микрофон → Разрешить → обновите страницу.</div>
         </div>
         <button class="btn btn-main" id="askBtn">Разрешить</button>
       </div>
@@ -86,28 +85,43 @@
         </div>
         <div class="row" style="margin-top:8px">
           <label><input id="musicMode" type="checkbox" checked> Музыкальный режим (без шумоподавления)</label>
-        </div>
-        <div class="row">
           <label><input id="sidetone" type="checkbox"> Слышать себя (в наушниках)</label>
         </div>
         <audio id="monitor" class="audio" controls hidden></audio>
       </div>
     </section>
 
-    <!-- Аудио-панель -->
+    <!-- АУДИО -->
     <section class="panel">
       <div class="muted" style="margin-bottom:8px">Загрузить свои аудио файлы</div>
       <div class="row">
-        <input id="filePicker" type="file" accept="audio/*" multiple>
+        <!-- широкий accept для iOS/Android -->
+        <input id="filePicker" type="file" multiple
+               accept="audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/ogg,audio/webm,audio/*,video/quicktime">
         <button class="btn btn-ghost" id="clearList">Очистить плейлист</button>
       </div>
-      <div id="playlist" style="margin-top:10px;display:grid;gap:8px"></div>
-      <audio id="hiddenPlayer" crossorigin="anonymous"></audio>
+      <div id="playlist" style="margin-top:10px"></div>
+
+      <!-- скрытый плеер -->
+      <audio id="hiddenPlayer" crossorigin="anonymous" playsinline></audio>
+
+      <!-- глобальные кнопки скорости -->
+      <div class="row" style="margin-top:12px">
+        <div class="muted small">Скорость:</div>
+        <button id="speedDown" class="btn btn-ghost">⏬ медленнее</button>
+        <button id="speedUp" class="btn btn-ghost">⏫ быстрее</button>
+        <button id="speedReset" class="btn btn-ghost">сброс</button>
+        <div id="speedValue" class="muted small" style="min-width:56px">×1.00</div>
+      </div>
+
+      <div class="small muted" style="margin-top:6px">
+        Смена скорости влияет на высоту (становится выше/ниже вместе со скоростью).
+      </div>
     </section>
 
     <section class="panel">
       <div class="muted small">
-        Совет: если связь слабая, выключите камеру — звук станет стабильнее. На iPhone аудио начнёт играть после любого клика.
+        Совет: если связь слабая — выключите камеру, звук будет стабильнее. На iPhone аудио начнёт играть после вашего клика.
       </div>
     </section>
   </main>
@@ -118,73 +132,58 @@
   </footer>
 
 <script>
-/* ===== Утилиты / флаги ===== */
-const $ = (id)=>document.getElementById(id);
+/* ====== Утилиты / состояние ====== */
+const $ = id => document.getElementById(id);
 const qp = new URLSearchParams(location.search);
-const isHost = qp.has('host');                 // ?host=1
-const joinId = qp.get('join') || null;         // ?join=ABCD
-const GEN = ()=> Math.random().toString(36).slice(2,8).toUpperCase();
+const isHost = qp.has('host');
+const joinId = qp.get('join') || null;
+const GEN = () => Math.random().toString(36).slice(2,8).toUpperCase();
 
 let localStream=null, remoteStream=null, peer=null, currentCall=null;
 let musicEnabled=true, monitorStarted=false;
 
-/* ===== МЕДИА (музыкальные настройки) ===== */
+const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if(isIOS) $('iosHint').style.display = 'block';
+
+/* ====== Медиа ====== */
 function getConstraints(){
   return {
     audio:{
-      echoCancellation: !musicEnabled ? true : false,
-      noiseSuppression: !musicEnabled ? true : false,
-      autoGainControl: !musicEnabled ? true : false,
-      channelCount: 1,
-      sampleRate: 48000
+      echoCancellation: !musicEnabled,
+      noiseSuppression: !musicEnabled,
+      autoGainControl: !musicEnabled,
+      channelCount:1, sampleRate:48000
     },
-    video: true
+    video:true
   };
 }
-
 async function getMedia(){
-  if(localStream){ localStream.getTracks().forEach(t=>t.stop()); }
+  if(localStream) localStream.getTracks().forEach(t=>t.stop());
   localStream = await navigator.mediaDevices.getUserMedia(getConstraints());
   $('localVideo').srcObject = localStream;
   return localStream;
 }
-
-function setMic(on){
-  localStream?.getAudioTracks().forEach(t=>t.enabled = on);
-  $('micBtn').textContent = `🎙️ Микрофон: ${on?'Вкл':'Выкл'}`;
-}
-function setCam(on){
-  localStream?.getVideoTracks().forEach(t=>t.enabled = on);
-  $('camBtn').textContent = `📷 Камера: ${on?'Вкл':'Выкл'}`;
-}
+function setMic(on){ localStream?.getAudioTracks().forEach(t=>t.enabled=on); $('micBtn').textContent=`🎙️ Микрофон: ${on?'Вкл':'Выкл'}`; }
+function setCam(on){ localStream?.getVideoTracks().forEach(t=>t.enabled=on); $('camBtn').textContent=`📷 Камера: ${on?'Вкл':'Выкл'}`; }
 function toggleSidetone(on){
-  const audio = $('monitor');
-  if(on){
-    if(!monitorStarted){
-      audio.hidden = false; audio.srcObject = localStream; audio.muted=false;
-      audio.play().catch(()=>{});
-      monitorStarted=true;
-    }
-  }else{
-    audio.pause(); audio.srcObject=null; audio.hidden=true; monitorStarted=false;
-  }
+  const a=$('monitor');
+  if(on && !monitorStarted){ a.hidden=false; a.srcObject=localStream; a.muted=false; a.play().catch(()=>{}); monitorStarted=true; }
+  if(!on && monitorStarted){ a.pause(); a.srcObject=null; a.hidden=true; monitorStarted=false; }
 }
 
-/* ===== Разрешения ===== */
-const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent) ||
-              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
+/* ====== Разрешения ====== */
 async function checkPermissions(){
-  if (!navigator.permissions) { $('permBanner').style.display='block'; return 'prompt'; }
-  try {
-    const mic = await navigator.permissions.query({name:'microphone'});
-    const cam = await navigator.permissions.query({name:'camera'});
-    if (mic.state==='granted' && cam.state==='granted') return 'granted';
+  if(!navigator.permissions){ $('permBanner').style.display='block'; return 'prompt'; }
+  try{
+    const m=await navigator.permissions.query({name:'microphone'});
+    const c=await navigator.permissions.query({name:'camera'});
+    if(m.state==='granted' && c.state==='granted') return 'granted';
     $('permBanner').style.display='block';
-    return (mic.state==='denied' || cam.state==='denied') ? 'denied' : 'prompt';
-  } catch { $('permBanner').style.display='block'; return 'prompt'; }
+    return (m.state==='denied'||c.state==='denied')?'denied':'prompt';
+  }catch{ $('permBanner').style.display='block'; return 'prompt'; }
 }
-async function requestAccessFromUserGesture(){
+async function requestAccess(){
   try{
     await getMedia();
     $('permBanner').style.display='none';
@@ -192,219 +191,175 @@ async function requestAccessFromUserGesture(){
     await initPeerFlow();
   }catch(e){
     console.error(e);
-    if (isIOS) alert('Safari → «aA» → Настройки для сайта → Камера/Микрофон → Разрешить, затем обновите страницу.');
+    // Если пользователь ранее запретил перманентно — Safari покажет только переход в Настройки
+    alert('Не удалось получить доступ. Если ранее запретили — Safari → aA → Настройки сайта → Разрешить камеру и микрофон, затем обновите страницу.');
   }
 }
+$('askBtn').addEventListener('click', requestAccess);
 
-/* ===== PeerJS / звонок ===== */
-function bindStreamHandlers(call){
-  call.on('stream', rs=>{
-    remoteStream = rs;
-    $('remoteVideo').srcObject = rs;
-    $('remoteState').textContent = 'Соединение установлено';
-  });
-  call.on('close', ()=>{ $('remoteState').textContent = 'Связь закончена'; });
-  call.on('error', (e)=>{ console.error(e); $('remoteState').textContent = 'Ошибка соединения'; });
-}
-
+/* ====== PeerJS / звонок ====== */
 function showShare(code){
   $('sharePanel').style.display='block';
-  const link = `${location.origin}/room.html?join=${encodeURIComponent(code)}`;
-  const box = $('shareCode'); const btn = $('copyBtn');
-  box.textContent = link; btn.disabled = false;
-  btn.onclick = async ()=>{
-    try{ await navigator.clipboard.writeText(link); btn.textContent='Скопировано ✓'; setTimeout(()=>btn.textContent='Скопировать ссылку',1200); }
-    catch{ const r=document.createRange(); r.selectNodeContents(box); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+  const link=`${location.origin}/room.html?join=${encodeURIComponent(code)}`;
+  $('shareCode').textContent=link;
+  const btn=$('copyBtn');
+  btn.disabled=false;
+  btn.onclick=async()=>{
+    try{ await navigator.clipboard.writeText(link); btn.textContent='Скопировано ✓'; setTimeout(()=>btn.textContent='Скопировать ссылку',1200);}
+    catch{ const r=document.createRange(); r.selectNodeContents($('shareCode')); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); }
   };
 }
-
+function bindStreamHandlers(call){
+  call.on('stream',rs=>{ remoteStream=rs; $('remoteVideo').srcObject=rs; $('remoteState').textContent='Соединение установлено'; });
+  call.on('close',()=>{$('remoteState').textContent='Связь закончена';});
+  call.on('error',e=>{ console.error(e); $('remoteState').textContent='Ошибка соединения'; });
+}
+function bindHandlersAsHost(){
+  peer.on('call', call=>{ currentCall=call; call.answer(localStream); bindStreamHandlers(call); });
+}
 async function initPeerFlow(){
-  if (peer) return;
-  peer = new Peer(); // подключаемся к облаку PeerJS
-
-  if (isHost){
+  if(peer) return;
+  peer = new Peer(); // публичный облачный PeerJS
+  if(isHost){
     peer.on('open', id=>{
-      const code = GEN();         // свой короткий код
-      peer.destroy();             // пересоздаём с фиксированным id
-      peer = new Peer(code);
+      const code = GEN(); peer.destroy(); peer = new Peer(code);
       peer.on('open', ()=> showShare(code));
       bindHandlersAsHost();
     });
   }else if(joinId){
-    peer.on('open', ()=> connectAsStudent(joinId));
+    peer.on('open', ()=>{
+      const call=peer.call(joinId, localStream);
+      currentCall=call; bindStreamHandlers(call);
+    });
   }else{
     location.href='/';
   }
 }
 
-function bindHandlersAsHost(){
-  peer.on('call', call=>{
-    currentCall = call;
-    call.answer(localStream);
-    bindStreamHandlers(call);
-  });
+/* ====== Плейлист / воспроизведение ====== */
+const picker=$('filePicker'), list=$('playlist'), player=$('hiddenPlayer');
+let dragging=null;
+let speed=1.0;
+
+function shortTitle(name){
+  const base = name.split('/').pop().split('\\').pop();
+  return (window.matchMedia('(max-width:600px)').matches && base.length>4) ? (base.slice(0,4)+'…') : base;
 }
-function connectAsStudent(code){
-  $('sharePanel').style.display='none';
-  $('remoteState').textContent='Идёт звонок преподавателю…';
-  const call = peer.call(code, localStream);
-  currentCall = call;
-  bindStreamHandlers(call);
-}
-
-/* ===== Аудиоплейлист (оба слышат) ===== */
-const picker = $('filePicker');
-const playlist = $('playlist');
-const hiddenPlayer = $('hiddenPlayer');
-
-let fileTrack=null, ctx=null, srcNode=null, outNode=null;
-let splitter=null, merger=null, gL=null, gR=null, hp=null;
-let pitchSemis=0, dragging=null;
-
-function isMobile(){ return matchMedia('(max-width:600px)').matches; }
-function shortTitle(name){ const b=name.split('/').pop().split('\\').pop(); return isMobile() && b.length>4 ? b.slice(0,4)+'…' : b; }
-function svgPlay(){return `<svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>`}
-function svgPause(){return `<svg class="icon" viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z" fill="currentColor"/></svg>`}
+function fmtRate(r){ return '×' + r.toFixed(2); }
 
 function renderItem(name, url){
   const row=document.createElement('div'); row.className='track';
-  const pp=document.createElement('button'); pp.className='btn btn-ghost'; pp.innerHTML=svgPlay();
-  const title=document.createElement('div'); title.textContent=shortTitle(name); title.style.minWidth='64px';
-  const bar=document.createElement('div'); bar.className='bar'; const fill=document.createElement('span'); bar.appendChild(fill);
-  const vol=document.createElement('input'); vol.type='range'; vol.min=0; vol.max=1; vol.step=0.01; vol.value=1; vol.className='vol';
-  row.append(pp,title,bar,vol); playlist.appendChild(row);
-  const player = hiddenPlayer;
 
-  function sync(){ if(player.duration>0) fill.style.width = `${(player.currentTime/player.duration)*100}%`; if(!player.paused) requestAnimationFrame(sync); }
-  async function ensureWebAudio(){
-    ctx = ctx || new (window.AudioContext||window.webkitAudioContext)();
-    if (!srcNode || srcNode.mediaElement!==player){
-      if (srcNode) try{srcNode.disconnect();}catch(_){}
-      srcNode = ctx.createMediaElementSource(player);
-      outNode = ctx.createMediaStreamDestination();
-      srcNode.connect(ctx.destination);
-      srcNode.connect(outNode);
-    }
-    if (currentCall){
-      if (!fileTrack){
-        fileTrack = outNode.stream.getAudioTracks()[0] || null;
-        if (fileTrack) currentCall.peerConnection.addTrack(fileTrack, outNode.stream);
-      }
+  const pp=document.createElement('button'); pp.className='btn btn-ghost';
+  const playSVG='<svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
+  const pauseSVG='<svg class="icon" viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z" fill="currentColor"/></svg>';
+  pp.innerHTML=playSVG;
+
+  const title=document.createElement('div'); title.className='title'; title.textContent=shortTitle(name);
+
+  const bar=document.createElement('div'); bar.className='bar';
+  const fill=document.createElement('span'); bar.appendChild(fill);
+
+  const vol=document.createElement('input'); vol.type='range'; vol.className='vol'; vol.min=0; vol.max=1; vol.step=0.01; vol.value=1;
+
+  row.append(pp,title,bar,vol);
+  list.appendChild(row);
+
+  function sync(){
+    if(player.src===url && player.duration>0){
+      fill.style.width = `${(player.currentTime/player.duration)*100}%`;
+      if(!player.paused) requestAnimationFrame(sync);
     }
   }
-  function applyPitch(){ player.playbackRate = Math.pow(2, pitchSemis/12); }
-
-  function setTimeByClientX(x){
-    const r=bar.getBoundingClientRect(); const pos=Math.min(Math.max(x-r.left,0),r.width);
-    const ratio = r.width ? pos/r.width : 0; if(player.duration>0) player.currentTime = ratio*player.duration;
+  function setTimeByX(clientX){
+    const r=bar.getBoundingClientRect(); const x=Math.min(Math.max(clientX-r.left,0),r.width);
+    const ratio=r.width?x/r.width:0; if(player.src===url && player.duration>0) player.currentTime=ratio*player.duration;
   }
-  bar.addEventListener('pointerdown',e=>{ dragging={player}; setTimeByClientX(e.clientX); });
-  window.addEventListener('pointermove',e=>{ if(dragging&&dragging.player===player) setTimeByClientX(e.clientX); });
-  window.addEventListener('pointerup',()=>{ if(dragging&&dragging.player===player) dragging=null; });
+
+  bar.addEventListener('pointerdown',e=>{ dragging=url; setTimeByX(e.clientX); });
+  window.addEventListener('pointermove',e=>{ if(dragging===url) setTimeByX(e.clientX); });
+  window.addEventListener('pointerup',()=>{ if(dragging===url) dragging=null; });
 
   pp.onclick = async ()=>{
     if (player.src!==url){ player.src=url; player.currentTime=0; }
-    applyPitch(); player.volume=vol.value;
-    if (player.paused){ await ensureWebAudio(); await player.play().catch(()=>{}); pp.innerHTML=svgPause(); requestAnimationFrame(sync); }
-    else{ player.pause(); pp.innerHTML=svgPlay(); }
-  };
-  vol.oninput = ()=> player.volume = vol.value;
-  player.addEventListener('ended',()=>{ if(player.src===url) pp.innerHTML=svgPlay(); });
-}
-
-$('clearList').onclick = ()=>{
-  playlist.innerHTML=''; hiddenPlayer.pause(); hiddenPlayer.removeAttribute('src');
-  if (picker.value) picker.value='';
-};
-picker.addEventListener('change', ()=>{
-  playlist.innerHTML='';
-  Array.from(picker.files||[]).forEach(f=> renderItem(f.name, URL.createObjectURL(f)));
-});
-
-/* Караоке (L−R) */
-function applyKaraoke(on){
-  if (!ctx || !srcNode) return;
-  try{ srcNode.disconnect(); }catch(_){}
-  if (splitter){ try{ splitter.disconnect(); }catch(_){}
-    splitter=merger=gL=gR=hp=null;
-  }
-  if (on){
-    splitter=ctx.createChannelSplitter(2);
-    gL=ctx.createGain(); gR=ctx.createGain(); gL.gain.value=1; gR.gain.value=-1;
-    const sum=ctx.createGain();
-    srcNode.connect(splitter); splitter.connect(gL,0); splitter.connect(gR,1); gL.connect(sum); gR.connect(sum);
-    hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=120;
-    sum.connect(hp);
-    outNode = outNode || ctx.createMediaStreamDestination();
-    hp.connect(ctx.destination); hp.connect(outNode);
-  }else{
-    outNode = outNode || ctx.createMediaStreamDestination();
-    srcNode.connect(ctx.destination); srcNode.connect(outNode);
-  }
-  if (currentCall && outNode){
-    const newTrack=outNode.stream.getAudioTracks()[0];
-    if (fileTrack && newTrack && newTrack!==fileTrack){
-      const snd=currentCall.peerConnection.getSenders().find(s=>s.track===fileTrack);
-      if (snd) try{ snd.replaceTrack(newTrack); }catch(_){}
-      fileTrack=newTrack;
-    }else if(!fileTrack && newTrack){
-      currentCall.peerConnection.addTrack(newTrack, outNode.stream);
-      fileTrack=newTrack;
+    player.playbackRate = speed; player.volume = vol.value;
+    if (player.paused){
+      await player.play().catch(()=>{});
+      // отправляем дорожку собеседнику: через WebAudio (универсально)
+      attachToCall(player);
+      pp.innerHTML=pauseSVG; requestAnimationFrame(sync);
+    }else{
+      player.pause(); pp.innerHTML=playSVG;
     }
+  };
+  vol.oninput = ()=>{ if(player.src===url) player.volume=vol.value; };
+
+  player.addEventListener('ended',()=>{ if(player.src===url) pp.innerHTML=playSVG; });
+}
+
+function attachToCall(mediaEl){
+  // универсально для всех браузеров: MediaElementSource → MediaStreamDestination
+  const ctx = new (window.AudioContext||window.webkitAudioContext)();
+  const src = ctx.createMediaElementSource(mediaEl);
+  const dest = ctx.createMediaStreamDestination();
+  src.connect(ctx.destination); // локально слышать
+  src.connect(dest);            // в звонок
+  const tr = dest.stream.getAudioTracks()[0];
+  if(currentCall && tr){
+    const pc = currentCall.peerConnection;
+    // добавим новый трек (если уже был — просто добавится параллельным)
+    pc.addTrack(tr, dest.stream);
   }
 }
 
-/* Панель управления высотой и караоке */
-function addGlobalAudioControls(){
-  if ($('audioControls')) return;
-  const wrap=document.createElement('div'); wrap.id='audioControls'; wrap.className='row'; wrap.style.marginTop='12px';
-  const lbl=document.createElement('div'); lbl.className='muted small'; lbl.textContent='Высота:';
-  const minus=document.createElement('button'); minus.className='btn btn-ghost'; minus.textContent='♭ −0.5';
-  const plus=document.createElement('button');  plus.className='btn btn-ghost';  plus.textContent='♯ +0.5';
-  const reset=document.createElement('button'); reset.className='btn btn-ghost'; reset.textContent='сброс';
-  const val=document.createElement('div'); val.className='muted small'; val.style.minWidth='70px'; val.textContent='0';
-  const karo=document.createElement('button'); karo.className='btn btn-ghost'; karo.textContent='Караоке (минус вокал): выкл';
-  let karaokeOn=false;
-  minus.onclick = ()=>{ pitchSemis-=0.5; val.textContent=pitchSemis; hiddenPlayer.playbackRate=Math.pow(2,pitchSemis/12); };
-  plus.onclick  = ()=>{ pitchSemis+=0.5; val.textContent=pitchSemis; hiddenPlayer.playbackRate=Math.pow(2,pitchSemis/12); };
-  reset.onclick = ()=>{ pitchSemis=0;   val.textContent='0'; hiddenPlayer.playbackRate=1; };
-  karo.onclick  = ()=>{ karaokeOn=!karaokeOn; karo.textContent='Караоке (минус вокал): '+(karaokeOn?'вкл':'выкл'); applyKaraoke(karaokeOn); };
-  wrap.append(lbl,minus,plus,reset,val,karo); playlist.after(wrap);
-}
-addGlobalAudioControls();
+picker.addEventListener('change', ()=>{
+  // иногда iOS сбрасывает accept → мы и так берём всё из multiple
+  list.innerHTML='';
+  const files = Array.from(picker.files||[]);
+  files.forEach(f=>{
+    const url = URL.createObjectURL(f); // даёт работать на iOS/Android
+    renderItem(f.name, url);
+  });
+});
+$('clearList').onclick = ()=>{
+  list.innerHTML = '';
+  player.pause(); player.removeAttribute('src');
+  if(picker.value) picker.value='';
+};
 
-/* ===== Инициализация страницы ===== */
-async function init(){
+/* Глобальные кнопки СКОРОСТИ */
+const speedValue=$('speedValue');
+$('speedDown').onclick = ()=>{ speed = Math.max(0.25, +(speed - 0.05).toFixed(2)); speedValue.textContent=fmtRate(speed); player.playbackRate=speed; };
+$('speedUp').onclick   = ()=>{ speed = Math.min(2.00,  +(speed + 0.05).toFixed(2)); speedValue.textContent=fmtRate(speed); player.playbackRate=speed; };
+$('speedReset').onclick= ()=>{ speed = 1.00; speedValue.textContent=fmtRate(speed); player.playbackRate=speed; };
+
+/* ====== Инициализация ====== */
+(async function init(){
   $('roleBadge').textContent = isHost ? 'Вы — преподаватель' : 'Вы — ученик';
   if (isHost) $('sharePanel').style.display='block';
 
-  const ask=$('askBtn'); if(ask) ask.onclick=requestAccessFromUserGesture;
+  $('micBtn').onclick=()=> setMic(!(localStream?.getAudioTracks()[0]?.enabled));
+  $('camBtn').onclick=()=> setCam(!(localStream?.getVideoTracks()[0]?.enabled));
+  $('musicMode').onchange=async e=>{
+    musicEnabled=e.target.checked;
+    const newStream=await getMedia();
+    if(currentCall){
+      const senders=currentCall.peerConnection.getSenders();
+      const nA=newStream.getAudioTracks()[0], nV=newStream.getVideoTracks()[0];
+      const sA=senders.find(s=>s.track?.kind==='audio'), sV=senders.find(s=>s.track?.kind==='video');
+      if(sA&&nA) sA.replaceTrack(nA); if(sV&&nV) sV.replaceTrack(nV);
+    }
+  };
+  $('sidetone').onchange=e=>toggleSidetone(e.target.checked);
 
   const status = await checkPermissions();
-  if (status==='granted'){
+  if(status==='granted'){
     try{ await getMedia(); $('permBanner').style.display='none'; setMic(true); setCam(true); await initPeerFlow(); }
     catch{ $('permBanner').style.display='block'; }
   }else{
     $('permBanner').style.display='block';
   }
-
-  $('micBtn').onclick = ()=> setMic(!(localStream?.getAudioTracks()[0]?.enabled));
-  $('camBtn').onclick = ()=> setCam(!(localStream?.getVideoTracks()[0]?.enabled));
-  $('musicMode').onchange = async (e)=>{
-    musicEnabled = e.target.checked;
-    const newStream = await getMedia();
-    if(currentCall){
-      const senders=currentCall.peerConnection.getSenders();
-      const nA=newStream.getAudioTracks()[0], nV=newStream.getVideoTracks()[0];
-      const sA=senders.find(s=>s.track?.kind==='audio'), sV=senders.find(s=>s.track?.kind==='video');
-      if(sA&&nA) sA.replaceTrack(nA);
-      if(sV&&nV) sV.replaceTrack(nV);
-    }
-  };
-  $('sidetone').onchange = (e)=> toggleSidetone(e.target.checked);
-}
-
-init();
+})();
 </script>
 </body>
 </html>
