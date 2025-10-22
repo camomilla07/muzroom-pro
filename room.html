@@ -13,6 +13,76 @@
     --shadow:0 12px 28px rgba(16,20,32,.08); --radius:16px;
   }
   *{box-sizing:border-box}
+  /* Заголовок «загрузить файлы» */
+.h6{margin:0 0 10px;font-size:14px;color:var(--muted);text-transform:lowercase}
+
+/* Кнопка выбора файлов: реальный <input> поверх кнопки */
+.file-btn{
+  position:relative; display:inline-block;
+  margin:8px 8px 12px 0;
+}
+.file-btn__label{
+  display:inline-block; padding:10px 14px;
+  border:1px solid var(--accent-weak); border-radius:12px;
+  background:#fff; font-weight:600; cursor:pointer;
+}
+.file-btn input[type=file]{
+  position:absolute; inset:0; opacity:0; cursor:pointer;
+}
+
+/* Список треков */
+.playlist{list-style:none; padding:0; margin:8px 0 0; display:grid; gap:10px}
+.track{
+  background:var(--paper); border:1px solid var(--accent-weak);
+  border-radius:12px; padding:10px; box-shadow:var(--shadow);
+}
+
+/* Сетка плеера: кнопка | прогресс | громкость */
+.player{
+  display:grid; grid-template-columns:44px 1fr 120px; gap:10px; align-items:center;
+}
+@media (max-width:680px){
+  .player{grid-template-columns:44px 1fr; grid-template-rows:auto auto}
+  .volume{grid-column:1 / -1; width:100%}
+}
+
+/* Название трека — обрезка многоточием */
+.title{
+  max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+  font-weight:600; color:var(--ink); margin-bottom:6px;
+}
+
+/* Кнопка Play/Pause — кружок */
+.play{
+  width:44px; height:44px; border-radius:50%;
+  display:grid; place-items:center; border:none; cursor:pointer;
+  background:var(--accent); color:#fff; font-size:18px;
+}
+.play:focus-visible{box-shadow:var(--ring)}
+
+/* Прогресс: толстый, удобный пальцем */
+.progress{
+  -webkit-appearance:none; appearance:none; width:100%; height:10px;
+  background:#e9edf6; border-radius:999px; outline:none; cursor:pointer;
+}
+.progress::-webkit-slider-thumb{
+  -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+  background:var(--accent); border:none; margin-top:-4px;
+}
+
+/* Громкость */
+.volume{
+  -webkit-appearance:none; appearance:none; height:10px; width:120px;
+  background:#e9edf6; border-radius:999px; outline:none; cursor:pointer;
+}
+.volume::-webkit-slider-thumb{
+  -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+  background:var(--accent); border:none; margin-top:-3px;
+}
+
+/* Статусы/подзаголовки */
+.meta{font-size:12px; color:var(--muted)}
+
   html,body{height:100%}
   body{margin:0;font-family:system-ui,-apple-system,Inter,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
   header,footer{max-width:1024px;margin:0 auto;padding:16px 14px}
@@ -87,16 +157,24 @@
   </section>
 
   <!-- Аудиофайлы -->
-  <section class="panel col">
-    <div class="pill">
-      <div class="title">загрузить свои аудио файлы</div>
-      <div class="row">
-        <input type="file" id="fileInput" accept="audio/*" multiple>
-        <button class="btn btn-ghost" id="clearBtn">Очистить плейлист</button>
-      </div>
-    </div>
-    <div id="playlist" class="col"></div>
-  </section>
+  <!-- === Upload & Playlist Panel === -->
+<section class="panel" id="audioPanel">
+  <h3 class="h6">Загрузить свои аудио файлы</h3>
+
+  <!-- Кнопка-загрузка: реальный input поверх стилизованной кнопки -->
+  <div class="file-btn">
+    <span class="file-btn__label">Выбор файлов</span>
+    <input id="fileInput"
+           type="file"
+           accept="audio/*"
+           multiple
+           aria-label="Выбрать аудиофайлы">
+  </div>
+
+  <button class="btn btn-ghost" id="clearPl">Очистить плейлист</button>
+
+  <ul id="playlist" class="playlist" aria-live="polite"></ul>
+</section>
 </main>
 
 <footer class="row" style="justify-content:space-between">
@@ -311,85 +389,143 @@ async function initPeerFlow(){
   }
 }
 
-/* ------------------ ПЛЕЙЛИСТ ------------------ */
-const playlist = $('playlist');
-const hiddenPlayer = $('hiddenPlayer');
-let tracks=[];
+// --- Playlist state ---
+const fileInput = $('fileInput');
+const playlistEl = $('playlist');
+const clearBtn = $('clearPl');
 
-function fmt(t){ // сек -> мм:сс
-  if(!isFinite(t)) return '0:00';
-  const m = Math.floor(t/60), s = Math.floor(t%60).toString().padStart(2,'0');
-  return `${m}:${s}`;
+let tracks = [];           // [{name, url, audio, duration}]
+let current = -1;          // индекс активного трека
+
+fileInput.onchange = async (e) => {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+
+  for (const f of files) {
+    if (!f.type.startsWith('audio/')) continue;
+    const url = URL.createObjectURL(f);
+    const audio = new Audio(url);
+    audio.preload = 'metadata';
+    await new Promise(res => {
+      audio.addEventListener('loadedmetadata', res, {once:true});
+      // страховка на случай, если событие не придёт
+      setTimeout(res, 800);
+    });
+    tracks.push({ name: f.name, url, audio, duration: audio.duration || 0 });
+  }
+  renderPlaylist();
+  fileInput.value = ''; // сброс выбрать ещё раз те же файлы
+};
+
+clearBtn.onclick = () => {
+  tracks.forEach(t => URL.revokeObjectURL(t.url));
+  tracks = []; current = -1;
+  renderPlaylist();
+};
+
+// Обрезка длинных названий на мобильном (покажем 12 символов)
+function shortName(name){
+  const isMobile = window.matchMedia('(max-width: 680px)').matches;
+  if (!isMobile) return name;
+  const base = name.replace(/\.[a-z0-9]+$/i,'');
+  const ext  = (name.match(/\.[a-z0-9]+$/i)||[''])[0];
+  if (base.length <= 12) return name;
+  return base.slice(0, 12) + '…' + ext;
 }
 
-function renderList(){
-  playlist.innerHTML='';
-  tracks.forEach((tr,idx)=>{
-    const row=document.createElement('div'); row.className='track';
+// Рендер списка
+function renderPlaylist(){
+  playlistEl.innerHTML = '';
+  tracks.forEach((t, i) => {
+    const li = document.createElement('li');
+    li.className = 'track';
+    li.innerHTML = `
+      <div class="title" title="${escapeHtml(t.name)}">${escapeHtml(shortName(t.name))}</div>
+      <div class="player">
+        <button class="play" aria-label="Play/Pause" data-idx="${i}">▶</button>
+        <input class="progress" type="range" min="0" max="${t.duration||1}" value="0" step="0.01" data-idx="${i}">
+        <input class="volume" type="range" min="0" max="1" step="0.01" value="1" data-idx="${i}">
+      </div>
+      <div class="meta" id="meta-${i}">${formatTime(0)} / ${formatTime(t.duration)}</div>
+    `;
+    playlistEl.appendChild(li);
+  });
+  bindPlayerEvents();
+}
 
-    const play=document.createElement('button'); play.className='iconbtn'; play.innerHTML='▶︎';
-    const name=document.createElement('div'); name.className='name'; name.title=tr.file.name; name.textContent=tr.file.name;
-    const block=document.createElement('div'); block.style.minWidth='140px'; block.className='row';
-
-    const timeL=document.createElement('span'); timeL.className='time'; timeL.textContent='0:00';
-    const range=document.createElement('input'); range.type='range'; range.min=0; range.max=1000; range.value=0; range.className='bar';
-    const timeR=document.createElement('span'); timeR.className='time'; timeR.textContent='0:00';
-
-    block.append(timeL,range,timeR);
-    row.append(play,name,block);
-    playlist.append(row);
-
-    // событие Play/Pause
-    play.onclick = async ()=>{
-      // если уже этот играет — пауза
-      if(hiddenPlayer.srcObject===tr.src || hiddenPlayer.currentSrc===tr.url){
-        if(hiddenPlayer.paused){ await hiddenPlayer.play(); play.innerHTML='⏸'; }
-        else{ hiddenPlayer.pause(); play.innerHTML='▶︎'; }
-        return;
-      }
-      // переключение на этот трек
-      if (tr.url) hiddenPlayer.src = tr.url;
-      else { hiddenPlayer.srcObject = tr.src; }
-      hiddenPlayer.currentTime=0;
-      try{
-        await hiddenPlayer.play();
-        play.innerHTML='⏸';
-        // подключить плеер в микшер и в звонок
-        rebuildAudioMixer(hiddenPlayer);
-        if(currentCall) routeMixIntoCall(currentCall);
-      }catch(e){ console.error(e); }
+function bindPlayerEvents(){
+  // Play/Pause
+  playlistEl.querySelectorAll('.play').forEach(btn=>{
+    btn.onclick = () => togglePlay(+btn.dataset.idx);
+  });
+  // Scrub (перемотка)
+  playlistEl.querySelectorAll('.progress').forEach(sl=>{
+    sl.oninput = () => {
+      const i = +sl.dataset.idx;
+      const t = tracks[i]; if (!t) return;
+      t.audio.currentTime = +sl.value;
+      updateMeta(i);
     };
-
-    // прогресс/перемотка
-    hiddenPlayer.addEventListener('timeupdate', ()=>{
-      if (hiddenPlayer.src===tr.url || hiddenPlayer.srcObject===tr.src) {
-        const c=hiddenPlayer.currentTime, d=hiddenPlayer.duration||1;
-        timeL.textContent=fmt(c);
-        timeR.textContent=fmt(d);
-        range.value=Math.floor(c/d*1000);
-      }
-    });
-    range.oninput = ()=>{
-      if(hiddenPlayer.src===tr.url || hiddenPlayer.srcObject===tr.src){
-        const d=hiddenPlayer.duration||1;
-        hiddenPlayer.currentTime = (range.value/1000)*d;
-      }
+  });
+  // Volume
+  playlistEl.querySelectorAll('.volume').forEach(sl=>{
+    sl.oninput = () => {
+      const i = +sl.dataset.idx;
+      const t = tracks[i]; if (!t) return;
+      t.audio.volume = +sl.value;
     };
-    hiddenPlayer.addEventListener('ended', ()=>{ if(hiddenPlayer.src===tr.url || hiddenPlayer.srcObject===tr.src){ play.innerHTML='▶︎'; }});
   });
 }
 
-$('fileInput').onchange = async (e)=>{
-  const files=[...e.target.files];
-  for(const f of files){
-    const url=URL.createObjectURL(f);
-    tracks.push({file:f,url});
+function togglePlay(i){
+  const t = tracks[i]; if (!t) return;
+
+  // стопнуть предыдущий
+  if (current !== -1 && current !== i){
+    const prev = tracks[current];
+    prev.audio.pause();
+    setBtnState(current, false);
   }
-  renderList();
-};
-$('clearBtn').onclick = ()=>{
-  tracks=[]; hiddenPlayer.pause(); hiddenPlayer.removeAttribute('src'); hiddenPlayer.srcObject=null; renderList();
-};
+  current = i;
+
+  if (t.audio.paused){
+    t.audio.play().catch(console.warn);
+    setBtnState(i, true);
+  }else{
+    t.audio.pause();
+    setBtnState(i, false);
+  }
+
+  // подписка на прогресс
+  t.audio.ontimeupdate = () => {
+    const prog = playlistEl.querySelector(`.progress[data-idx="${i}"]`);
+    if (prog && !isNaN(t.audio.currentTime)) prog.value = t.audio.currentTime;
+    updateMeta(i);
+  };
+  t.audio.onended = () => {
+    setBtnState(i, false);
+    // авто-переход к следующему (опционально)
+    // if (i+1 < tracks.length) togglePlay(i+1);
+  };
+}
+
+function setBtnState(i, playing){
+  const btn = playlistEl.querySelector(`.play[data-idx="${i}"]`);
+  if (btn) btn.textContent = playing ? '⏸' : '▶';
+}
+
+function updateMeta(i){
+  const t = tracks[i]; if (!t) return;
+  const meta = $('meta-'+i);
+  if (meta) meta.textContent = `${formatTime(t.audio.currentTime||0)} / ${formatTime(t.duration||0)}`;
+}
+
+function formatTime(sec){
+  sec = Math.max(0, +sec|0);
+  const m = (sec/60)|0, s = (sec%60)|0;
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])) }
 
 /* ------------------ INIT ------------------ */
 async function init(){
